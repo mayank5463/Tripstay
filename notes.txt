@@ -1,0 +1,2 @@
+the best way of coding is writing your code in modular format 
+!important is used to override the custom css of the boostrap

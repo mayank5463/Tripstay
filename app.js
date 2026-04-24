@@ -8,11 +8,11 @@ const methodOverride = require("method-override");
 const ejsMate = require("ejs-mate");
 main()
    .then(() => {
-    console.log("connected to DB");//this is connected to db
+    console.log("connected to DB");
 
    })
    .catch((err) => {
-    console.log(err);
+    console.log(err);//try and catch
    });
 async function main() {
     await mongoose.connect(MONGO_URL);

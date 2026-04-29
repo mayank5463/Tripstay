@@ -98,6 +98,9 @@ app.delete("/listings/:id",async (req,res) =>{
 app.use((err,req,res,next) =>{
     res.send("Something Went Wrong!")
 });
+app.use((err,req,res,next) =>{
+    res.send("Something Went Wrong!")
+});
 
 
 

@@ -1,49 +1,108 @@
 <% layout("/layouts/boilerplate") -%>
 <div class="row">
-    <div class="col-8 offset-2">
-        <br><br>
- <h1>Create a New Listing</h1>      
+  <div class="col-8 offset-2">
+    <br /><br />
+    <h1>Create a New Listing</h1>
     <form method="POST" action="/listings" novalidate class="needs-validation">
       <div class="mb-3">
-         <lable for = "title" class="form-label">Title</lable>
-         <input name="listing[title]" placeholder="Enter Title" type="text" class="form-control" required >
-         <div class="invalid-feedback">Enter the Appropriate Title!</div>
-         <div class="valid-feedback">Title Looks Awesome!</div>
-      </div>
-     <div class="mb-3">
-        <lable for = "description" class="form-label">Description</lable>
-        <textarea name="listing[description]"  class="form-control" required > Enter the Description</textarea>
-        <div class="invalid-feedback">Please Enter the Appropriote Decription</div>
+        <label for="title" class="form-label">Title</label>
+        <input
+          name="listing[title]"
+          placeholder="Enter Title"
+          type="text"
+          class="form-control"
+          required
+        />
+        <div class="invalid-feedback">Enter the Appropriate Title!</div>
+        <div class="valid-feedback">Title Looks Awesome!</div>
       </div>
 
-     <div class="mb-3">
-        <lable for = "image" class="form-label">Image Link</lable>
-       <input name="listing[image]" placeholder="Enter image URL/LINK" type="text" class="form-control" >
-       <div class="valid-feedback">Image looks Great!</div>
-      </div>
-    <div class="row">
-     <div class="mb-3 col-md-4">
-        <lable for = "price" class="form-label">Price</lable>
-       <input name="listing[price]" placeholder="Enter Price" type="number" class="form-control" required >
-       <div class="invalid-feedback">Enter Correct  Price</div>
-      </div>
-     
-      <div class="mb-3 col-md-8">
-        <lable for = "country" class="form-label">Country</lable>
-       <input name="listing[country]" placeholder="Enter Country" type="text" class="form-control" required>
-       <div class="invalid-feedback">Enter Correct Country!</div>
-      </div>
-      </div>
-      
       <div class="mb-3">
-        <lable for = "location" class="form-label">Location</lable>
-        <input name="listing[location]" placeholder="Enter Location" type="text" class="form-control" required >
+        <label for="description" class="form-label">Description</label>
+        <textarea name="listing[description]" class="form-control" required>
+Enter the Description</textarea
+        >
+        <div class="invalid-feedback">
+          Please Enter the Appropriate Description
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label for="image" class="form-label">Image Link</label>
+        <input
+          name="listing[image]"
+          placeholder="Enter image URL/LINK"
+          type="text"
+          class="form-control"
+        />
+        <div class="valid-feedback">Image looks Great!</div>
+      </div>
+
+      <div class="row">
+        <div class="mb-3 col-md-4">
+          <label for="price" class="form-label">Price</label>
+          <input
+            name="listing[price]"
+            placeholder="Enter Price"
+            type="number"
+            class="form-control"
+            required
+          />
+          <div class="invalid-feedback">Enter Correct Price</div>
+        </div>
+
+        <div class="mb-3 col-md-8">
+          <label for="country-input" class="form-label">Country</label>
+          <div style="position: relative">
+            <input
+              id="country-input"
+              name="listing[country]"
+              placeholder="Enter Country"
+              type="text"
+              class="form-control"
+              required
+              autocomplete="off"
+            />
+            <ul
+              id="country-dropdown"
+              style="
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+                background: white;
+                border: 1px solid #ccc;
+                border-top: none;
+                border-radius: 0 0 6px 6px;
+                max-height: 220px;
+                overflow-y: auto;
+                padding: 0;
+                margin: 0;
+                list-style: none;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+              "
+            ></ul>
+            <div class="invalid-feedback">Enter the Correct Country</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label for="location" class="form-label">Location</label>
+        <input
+          name="listing[location]"
+          placeholder="Enter Location"
+          type="text"
+          class="form-control"
+          required
+        />
         <div class="invalid-feedback">Enter the Correct Location</div>
       </div>
-       <br>
+      <br />
       <button class="btn btn-dark add-btn">Add</button>
-      <br><br>
+      <br /><br />
     </form>
- </div>
+  </div>
 </div>
-

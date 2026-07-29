@@ -1,0 +1,17 @@
+<% layout("/layouts/boilerplate") -%>
+
+<h1>Search Results for: <%= city %></h1>
+
+<% if (allListings.length === 0) { %>
+  <p>No listings found for "<%= city %>"</p>
+<% } else { %>
+  <ul>
+    <% allListings.forEach(listing => { %>
+      <li>
+        <a href="/listings/<%= listing._id %>">
+          <%= listing.title %> - <%= listing.location %> - ₹<%= listing.price %>
+        </a>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>

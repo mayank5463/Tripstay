@@ -3,12 +3,18 @@
   <div class="col-8 offset-2">
     <br /><br />
     <h1>Create a New Listing</h1>
-    <form method="POST" action="/listings" novalidate class="needs-validation">
+    <form
+      method="POST"
+      action="/listings"
+      novalidate
+      class="needs-validation"
+      enctype="multipart/form-data"
+    >
       <div class="mb-3">
         <label for="title" class="form-label">Title</label>
         <input
           name="listing[title]"
-          placeholder="Enter Title"
+          placeholder="Enter the title of the listing"
           type="text"
           class="form-control"
           required
@@ -28,12 +34,28 @@ Enter the Description</textarea
       </div>
 
       <div class="mb-3">
-        <label for="image" class="form-label">Image Link</label>
+        <label class="form-label">Category</label>
+
+        <select class="form-select" name="listing[category]" required>
+          <option value="Trending">Trending</option>
+          <option value="Rooms">Rooms</option>
+          <option value="Iconic Cities">Iconic Cities</option>
+          <option value="Mountains">Mountains</option>
+          <option value="Castles">Castles</option>
+          <option value="Amazing Pools">Amazing Pools</option>
+          <option value="Camping">Camping</option>
+          <option value="Farms">Farms</option>
+          <option value="Arctic">Arctic</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label for="image" class="form-label"> Upload Listing Image</label>
         <input
-          name="listing[image][url]"
-          placeholder="Enter image URL/LINK"
-          type="text"
+          name="listing[image]"
+          type="file"
           class="form-control"
+          required
         />
         <div class="valid-feedback">Image looks Great!</div>
       </div>

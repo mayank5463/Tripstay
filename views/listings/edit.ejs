@@ -9,7 +9,7 @@
         method="POST"
         action="/listings/<%= listing._id %>?_method=PUT"
         novalidate
-        class="needs-validation"
+        enctype="multipart/form-data"
       >
         <div class="mb-3">
           <label for="title" class="form-label">Title</label>
@@ -27,18 +27,25 @@
         <div class="mb-3">
           <label for="description" class="form-label">Description</label>
           <textarea name="listing[description]" class="form-control" required>
-<%= listing.description %></textarea>
+<%= listing.description %></textarea
+          >
           <div class="invalid-feedback">Enter the Title You want to Edit</div>
         </div>
 
+
         <div class="mb-3">
-          <label for="image" class="form-label">Image Link</label>
+          Orginal Listing Image<br/>
+          <img src="<%=originalImageUrl%>" alt="">
+        </div>
+
+
+        <div class="mb-3">
+          <label for="image" class="form-label">Upload New Image</label>
           <input
-            name="listing[image][url]"
+            name="listing[image]"
             value="<%= listing.image.url %>"
-            type="text"
+            type="file"
             class="form-control"
-            required
           />
           <div class="invalid-feedback">Enter the Image You want to Edit</div>
         </div>
@@ -58,7 +65,7 @@
 
           <div class="mb-3 col-md-8">
             <label for="country-input" class="form-label">Country</label>
-            <div style="position: relative;">
+            <div style="position: relative">
               <input
                 id="country-input"
                 name="listing[country]"

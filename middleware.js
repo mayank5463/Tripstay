@@ -12,6 +12,7 @@ module.exports.isLoggedIn = (req,res,next)=>{
  if(!req.isAuthenticated()){
    req.session.redirectUrl = req.originalUrl;
     req.flash("error","You must be logged in to create Listing");
+    console.log("1. Passed login");
    return  res.redirect("/login");
   }
   next();
@@ -43,12 +44,20 @@ module.exports.isOwner = async (req,res,next) =>{
 //joi middleware
 //server side validation for listing
 module.exports.validateListing = (req, res, next) => {
+  console.log("BODY =", req.body);
+  console.log("FILE =", req.file);
+
   const { error } = listingSchema.validate(req.body);
-  console.log(error);
+
+  console.log("JOI ERROR =", error);
+  
+
   if (error) {
     const errMsg = error.details.map((el) => el.message).join(", ");
     throw new ExpressError(400, errMsg);
   }
+  console.log("3. Passed Validation");
+
   next();
 };
 

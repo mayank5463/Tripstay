@@ -1,0 +1,13 @@
+Set-Content -Path .gitignore -Encoding utf8 -Value @"
+node_modules/
+.env
+.env.local
+npm-debug.log*
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+dist/
+build/
+coverage/
+"@

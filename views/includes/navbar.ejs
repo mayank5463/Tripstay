@@ -1,27 +1,88 @@
+<!-- ================= Navbar styles ================= -->
+<style>
+  /* Search button - pill shaped, Airbnb red */
+  .search-btn {
+    background-color: #fe424d;
+    color: #fff;
+    border-radius: 25px;
+    padding: 0.5rem 1rem;
+    border: none;
+  }
+  .search-btn:hover {
+    background-color: #e0343e;
+    color: #fff;
+  }
+  .search-btn i {
+    margin-right: 0.5rem;
+  }
+
+  /* Search input - pill shaped */
+  .search-inp {
+    border-radius: 25px;
+    padding: 0.5rem 1.5rem;
+    font-size: 1rem;
+  }
+</style>
+
+<!-- ================= Main navbar ================= -->
 <nav class="navbar navbar-expand-md bg-body-light border-bottom sticky-top">
   <div class="container-fluid">
-    <a class="navbar-brand" href="/"><i class="fa-regular fa-compass"></i></a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" >
+
+    <!-- Brand / logo -->
+    <a class="navbar-brand" href="/listings">
+      <i class="fa-regular fa-compass"></i>
+    </a>
+
+    <!-- Mobile toggle button -->
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#navbarNavAltMarkup"
+    >
       <span class="navbar-toggler-icon"></span>
     </button>
-    <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-      <div class="navbar-nav">
-        <a class="nav-link "  href="/">Home</a>
-        <a class="nav-link" href="/listings">ALL Listings</a>
-        <a class="nav-link" href="/listings/new">Add New Listing</a>
-        
-      </div>
-      <div class="navbar-nav ms-auto">
-        <% if(!currUser) {%>
-        <a class="nav-link "  href="/signup">Signup</a>
-        <a class="nav-link" href="/login">Login</a>
-        <%} %>
 
-        <% if(currUser) {%>
-        <a class="nav-link" href="/logout">Logout</a>
-        <%} %>
-        
+    <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+
+      <!-- Left: Explore link -->
+      <div class="navbar-nav">
+        <span class="nav-link pl-0">Tripstay</span>
+        <a class="nav-link" href="/listings">Explore</a>
       </div>
+
+      <!-- Center: Search form -->
+      <!-- Plain HTML form submit -> GET /search?city=... -> handled by /search route -->
+      <div class="navbar-nav ms-auto">
+        <form class="d-flex" role="search" action="/listings/search" method="GET">
+          <input
+            class="form-control me-2 search-inp"
+            type="search"
+            name="city"
+            placeholder="Search destinations"
+          />
+          <button class="btn search-btn" type="submit">
+            <i class="fa-solid fa-magnifying-glass"></i>Search
+          </button>
+        </form>
+      </div>
+
+      <!-- Right: Listing + Auth links -->
+      <div class="navbar-nav ms-auto">
+        <a class="nav-link" href="/listings/new">Place  Your Listing</a>
+
+        <!-- Show Signup/Login only when NOT logged in -->
+        <% if (!currUser) { %>
+          <a class="nav-link" href="/signup"><b>Signup</b></a>
+          <a class="nav-link" href="/login"><b>Login</b></a>
+        <% } %>
+
+        <!-- Show Logout only when logged in -->
+        <% if (currUser) { %>
+          <a class="nav-link" href="/logout"><b>Logout</b></a>
+        <% } %>
+      </div>
+
     </div>
   </div>
 </nav>

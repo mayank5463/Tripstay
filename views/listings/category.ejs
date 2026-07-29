@@ -1,0 +1,492 @@
+<% layout("/layouts/boilerplate") -%>
+
+<%
+  /* -- Per-category theming: each category gets its own accent + icon.
+     Falls back to a neutral premium theme if the category isn't mapped. -- */
+  const categoryThemes = {
+    "trending":        { c1: "#ff385c", c2: "#bd1e59", icon: "fa-solid fa-fire" },
+    "rooms":           { c1: "#7b4fe0", c2: "#4b2aa8", icon: "fa-solid fa-bed" },
+    "iconic cities":   { c1: "#2b6cb0", c2: "#1a365d", icon: "fa-solid fa-city" },
+    "mountains":       { c1: "#3d5a40", c2: "#1f3320", icon: "fa-solid fa-mountain" },
+    "castles":         { c1: "#7c5b3f", c2: "#4a3524", icon: "fa-solid fa-chess-rook" },
+    "amazing pools":   { c1: "#0891b2", c2: "#0e5266", icon: "fa-solid fa-water-ladder" },
+    "camping":         { c1: "#b45309", c2: "#7c3a05", icon: "fa-solid fa-campground" },
+    "farms":           { c1: "#65a30d", c2: "#3f6607", icon: "fa-solid fa-tractor" },
+    "arctic":          { c1: "#0369a1", c2: "#082f49", icon: "fa-solid fa-snowflake" },
+    "domes":           { c1: "#9333ea", c2: "#581c87", icon: "fa-solid fa-circle-half-stroke" },
+    "boats":           { c1: "#0d9488", c2: "#0a5450", icon: "fa-solid fa-sailboat" },
+  };
+  const theme = categoryThemes[String(category).toLowerCase()] || { c1: "#ff385c", c2: "#a3123f", icon: "fa-solid fa-compass" };
+
+  // small stats for the header strip
+  let avgPrice = 0, topRated = 0;
+  if (allListings && allListings.length) {
+    avgPrice = Math.round(allListings.reduce((s, l) => s + l.price, 0) / allListings.length);
+  }
+%>
+
+<style>
+  :root {
+    --brand: <%= theme.c1 %>;
+    --brand-dark: <%= theme.c2 %>;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --border-soft: #ececec;
+    --bg-page: #ffffff;
+    --bg-chip: #f7f7f7;
+    --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.06);
+    --shadow-card-hover: 0 10px 24px rgba(0, 0, 0, 0.10);
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --gold: #b8860b;
+  }
+
+  body {
+    background-color: var(--bg-page);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--text-primary);
+  }
+
+  /* -- Hero: dynamic per-category gradient, quieter texture, refined type -- */
+  .category-hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+    color: #fff;
+    padding: 4rem 3rem 3.25rem;
+    border-radius: var(--radius-lg);
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .category-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.14), transparent 55%);
+    pointer-events: none;
+  }
+
+  .category-hero .eyebrow {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.72rem;
+    font-weight: 700;
+    opacity: 0.9;
+    margin-bottom: 1rem;
+  }
+
+  .category-hero h1 {
+    position: relative;
+    font-size: 2.75rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.85rem;
+  }
+
+  .category-hero p {
+    position: relative;
+    font-size: 1.02rem;
+    line-height: 1.65;
+    opacity: 0.92;
+    max-width: 600px;
+    margin-bottom: 1.75rem;
+  }
+
+  /* quiet stat strip — reads premium, not gimmicky */
+  .hero-stats {
+    position: relative;
+    display: flex;
+    gap: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+  }
+
+  .hero-stats .stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .hero-stats .stat-label {
+    font-size: 0.76rem;
+    opacity: 0.85;
+    margin-top: 0.2rem;
+  }
+
+  /* -- Filter chip bar -- */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.75rem;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1rem;
+    border-radius: 20px;
+    border: 1px solid var(--border-soft);
+    background: var(--bg-chip);
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .filter-chip:hover {
+    border-color: var(--text-primary);
+    background: #f0f0f0;
+  }
+
+  .filter-chip i {
+    font-size: 0.78rem;
+  }
+
+  /* -- Results bar -- */
+  .results-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.75rem;
+  }
+
+  .results-info h4 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  .results-info .sub {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    margin-top: 0.15rem;
+  }
+
+  .back-btn {
+    border-radius: 25px;
+    padding: 0.6rem 1.4rem;
+    font-weight: 600;
+    font-size: 0.88rem;
+    border: 1px solid var(--text-primary);
+    color: var(--text-primary);
+    background: transparent;
+    transition: all 0.2s ease;
+  }
+
+  .back-btn:hover {
+    background: var(--text-primary);
+    color: #fff;
+  }
+
+  /* -- Listing card: static image, no zoom/hover on the photo itself -- */
+  .listing-link {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .listing-card {
+    margin-bottom: 2.25rem;
+  }
+
+  .card-media {
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.25s ease;
+    /* standard 4:3 aspect ratio — consistent, premium proportions across every card */
+    aspect-ratio: 4 / 3;
+  }
+
+  .listing-card:hover .card-media {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .listing-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    /* intentionally no transition/transform here — photo stays static on hover */
+  }
+
+  .wishlist-icon {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-size: 1.05rem;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+    z-index: 2;
+  }
+
+  .favorite-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+  }
+
+  .discount-badge {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(2px);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.32rem 0.7rem;
+    border-radius: 6px;
+    z-index: 2;
+  }
+
+  .listing-content {
+    padding-top: 0.9rem;
+  }
+
+  .listing-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.01em;
+  }
+
+  .listing-location {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 0.1rem;
+  }
+
+  .listing-dates {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .listing-price {
+    font-weight: 700;
+    margin-top: 0.4rem;
+  }
+
+  .listing-price span {
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+
+  .price-strike {
+    font-weight: 400;
+    color: var(--text-secondary);
+    text-decoration: line-through;
+    margin-right: 0.4rem;
+    font-size: 0.88rem;
+  }
+
+  .rating {
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .rating .count {
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+
+  .trust-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.76rem;
+    color: var(--brand-dark);
+    font-weight: 600;
+    margin-top: 0.35rem;
+  }
+
+  /* -- Empty state -- */
+  .empty-state {
+    text-align: center;
+    padding: 5.5rem 1rem;
+  }
+
+  .empty-state i {
+    font-size: 3.5rem;
+    color: var(--brand);
+    margin-bottom: 1.25rem;
+  }
+
+  .empty-state h2 {
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+  }
+
+  .empty-state p {
+    color: var(--text-secondary);
+    margin-bottom: 1.75rem;
+  }
+
+  .explore-btn {
+    background-color: var(--brand);
+    border: none;
+    border-radius: 25px;
+    color: #fff;
+    padding: 0.75rem 1.6rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+  }
+
+  .explore-btn:hover {
+    background-color: var(--brand-dark);
+    color: #fff;
+  }
+</style>
+
+<div class="container">
+
+  <!-- Hero: category-specific gradient/icon + a quiet stats strip -->
+  <div class="category-hero">
+    <div class="eyebrow"><i class="<%= theme.icon %>"></i> Curated Collection</div>
+    <h1><%= category %></h1>
+    <p>
+      Discover handpicked stays, unique experiences, beautiful destinations,
+      and memorable vacations from our <%= category %> collection.
+    </p>
+
+    <% if (allListings.length > 0) { %>
+      <div class="hero-stats">
+        <div>
+          <div class="stat-value"><%= allListings.length %></div>
+          <div class="stat-label">Stays available</div>
+        </div>
+        <div>
+          <div class="stat-value">₹<%= avgPrice.toLocaleString("en-IN") %></div>
+          <div class="stat-label">Average per night</div>
+        </div>
+        <div>
+          <div class="stat-value">4.8★</div>
+          <div class="stat-label">Avg. guest rating</div>
+        </div>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Filter chip bar: presentational, mirrors a real booking site's filter row -->
+  <div class="filter-bar">
+    <div class="filter-chip"><i class="fa-solid fa-sliders"></i> Filters</div>
+    <div class="filter-chip">Price</div>
+    <div class="filter-chip">Type of place</div>
+    <div class="filter-chip"><i class="fa-solid fa-bolt"></i> Instant Book</div>
+    <div class="filter-chip">Rating: 4.5+</div>
+    <div class="filter-chip">Free cancellation</div>
+  </div>
+
+  <% if (allListings.length > 0) { %>
+
+    <div class="results-info">
+      <div>
+        <h4><%= allListings.length %> stays found</h4>
+        <div class="sub">Prices include all fees</div>
+      </div>
+      <a href="/listings" class="btn back-btn">← Explore All</a>
+    </div>
+
+    <div class="row">
+      <% allListings.forEach((listing) => { %>
+        <%
+          let seed = listing._id.toString().split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+          let rating = (4.5 + (seed % 5) / 10).toFixed(2);
+          let reviews = 20 + (seed % 180);
+          let isFavorite = (seed % 3 === 0);
+          let hasDiscount = (seed % 2 === 0);
+          let discountPct = 10 + (seed % 4) * 5;
+          let originalPrice = Math.round(listing.price * (100 / (100 - discountPct)));
+        %>
+        <div class="col-lg-4 col-md-6 col-sm-12">
+          <a href="/listings/<%= listing._id %>" class="listing-link">
+            <div class="listing-card">
+
+              <div class="card-media">
+                <% if (isFavorite) { %>
+                  <div class="favorite-badge">★ Guest favorite</div>
+                <% } %>
+                <img
+                  src="<%= listing.image.url %>"
+                  alt="<%= listing.title %>"
+                  class="listing-img"
+                >
+                <i class="fa-regular fa-heart wishlist-icon"></i>
+                <% if (hasDiscount) { %>
+                  <div class="discount-badge"><%= discountPct %>% OFF</div>
+                <% } %>
+              </div>
+
+              <div class="listing-content">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="listing-title"><%= listing.title %></h5>
+                  <span class="rating">
+                    ★ <%= rating %> <span class="count">(<%= reviews %>)</span>
+                  </span>
+                </div>
+
+                <p class="listing-location">
+                  <%= listing.location %>, <%= listing.country %>
+                </p>
+                <p class="listing-dates">Available all week</p>
+
+                <p class="listing-price">
+                  <% if (hasDiscount) { %>
+                    <span class="price-strike">₹<%= originalPrice.toLocaleString("en-IN") %></span>
+                  <% } %>
+                  ₹<%= listing.price.toLocaleString("en-IN") %> <span>/ night</span>
+                </p>
+
+                <% if (hasDiscount) { %>
+                  <div class="trust-strip">
+                    <i class="fa-solid fa-check-circle"></i> Best Price Guaranteed
+                  </div>
+                <% } %>
+              </div>
+
+            </div>
+          </a>
+        </div>
+      <% }) %>
+    </div>
+
+  <% } else { %>
+
+    <div class="empty-state">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <h2>No listings found</h2>
+      <p>
+        We couldn't find any stays in the <strong><%= category %></strong> collection yet.
+      </p>
+      <a href="/listings" class="explore-btn">Explore all listings</a>
+    </div>
+
+  <% } %>
+
+</div>

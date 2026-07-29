@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -10,14 +11,15 @@ const passport = require("passport");
 const LocalStrategy = require("passport-local");
 const User = require("./models/user.js");
 
-
 const listingRouter = require("./routes/listing.js");
-const reviewRouter= require("./routes/reviews.js");
+const reviewRouter = require("./routes/reviews.js");
 const userRouter = require("./routes/user.js");
+const { saveRedirectUrl } = require("./middleware.js");
+
 
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 8080;
+const PORT =  8080;
 const MONGO_URL = "mongodb://127.0.0.1:27017/wanderlust";
 // "mongodb+srv://zerodhaMayank:Mayankzerodha1122@cluster1.gxdexo5.mongodb.net/wanderlust";
 //  "mongodb://127.0.0.1:27017/wanderlust";
@@ -41,25 +43,21 @@ app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
 app.use(express.static(path.join(__dirname, "public")));
 
-
-const  sessionOptions = {
-  secret:"mysupersecretcode",
-  resave:false,
-  saveUninitialized:true,
-  cookie:{
-    expires:Date.now() + 7*24*60*60*1000,
-    maxAge:7*24*60*60*1000,
-    httpOnly:true,
+const sessionOptions = {
+  secret: "mysupersecretcode",
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
   },
 };
 
-
-
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
-  res.send("Hi, I am root");
+  res.redirect("/listings");
 });
-
 
 app.use(session(sessionOptions));
 app.use(flash());
@@ -71,15 +69,13 @@ passport.use(new LocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
-
-app.use((req,res,next) =>{
-res.locals.success = req.flash("success");
-res.locals.error = req.flash("error");
-res.locals.currUser = req.user;
+app.use((req, res, next) => {
+  res.locals.success = req.flash("success");
+  res.locals.error = req.flash("error");
+  res.locals.currUser = req.user;
 
   next();
 });
-
 
 //demo user example
 // app.get("/demouser",async(req,res)=>{
@@ -92,8 +88,8 @@ res.locals.currUser = req.user;
 // })
 
 app.use("/listings", listingRouter);
-app.use("/listings/:id/reviews",reviewRouter);
-app.use("/",userRouter);
+app.use("/listings/:id/reviews", reviewRouter);
+app.use("/", userRouter);
 
 // ─── Error Handler ────────────────────────────────────────────────────────────
 

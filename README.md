@@ -30,7 +30,7 @@ A full-stack property rental platform inspired by Airbnb — built with Node.js,
 ## Project Structure
 
 ```
-tripstay/
+Tripstay/
 ├── controllers/        # Route logic (listings, reviews, users)
 ├── models/              # Mongoose schemas (Listing, Review, User)
 ├── routes/              # Express routers
@@ -56,8 +56,8 @@ tripstay/
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/your-username/tripstay.git
-   cd tripstay
+   git clone https://github.com/mayank5463/Tripstay.git
+   cd Tripstay
    ```
 
 2. Install dependencies
@@ -110,7 +110,6 @@ tripstay/
 
 ## Future Improvements
 
-- Migrate hardcoded session secret and other config values fully into environment variables
 - Add pagination for listings
 - Add unit and integration tests
 - Add a wishlist / favorites feature

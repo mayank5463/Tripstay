@@ -4,7 +4,7 @@ A full-stack property rental platform inspired by Airbnb — built with Node.js,
 
 ## Features
 
-- **Authentication & Authorization** — Secure signup/login with Passport.js (local strategy); ownership-based middleware ensures only listing/review owners can edit or delete their content.
+- **Authentication & Authorization** — Secure signup/login with Passport.js (local strategy); ownership-based middleware ensures only listing/review owners can edit or delete the content.
 - **Listings CRUD** — Create, view, update, and delete property listings with server-side validation (Joi).
 - **Image Uploads** — Listing images are uploaded and stored on Cloudinary via Multer, removing dependency on local server storage.
 - **Geolocation & Maps** — Mapbox Geocoding API converts entered addresses into coordinates; interactive cluster maps display all listings, with a dedicated map on each listing's detail page.

@@ -20,7 +20,8 @@ const { saveRedirectUrl } = require("./middleware.js");
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const PORT =  8080;
-const MONGO_URL = "mongodb://127.0.0.1:27017/wanderlust";
+const MONGO_URL =  "mongodb+srv://zerodhaMayank:Mayankzerodha1122@cluster1.gxdexo5.mongodb.net/wanderlust";
+// "mongodb://127.0.0.1:27017/wanderlust";
 // "mongodb+srv://zerodhaMayank:Mayankzerodha1122@cluster1.gxdexo5.mongodb.net/wanderlust";
 //  "mongodb://127.0.0.1:27017/wanderlust";
 // ─── DB Connection ────────────────────────────────────────────────────────────

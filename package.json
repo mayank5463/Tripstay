@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,14 +13,17 @@
   "type": "commonjs",
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",
-    "cloudinary": "^1.41.3",
+    "cloudinary": "^2.10.1",
     "connect-flash": "^0.1.1",
+    "connect-mongo": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "ejs": "^4.0.1",
     "ejs-mate": "^4.0.0",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
     "joi": "^18.2.3",
     "method-override": "^3.0.0",
     "mongoose": "^9.2.3",

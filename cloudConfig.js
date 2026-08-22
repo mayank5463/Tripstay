@@ -1,15 +1,15 @@
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
-// Debug environment variables
-console.log("========== CLOUDINARY CONFIG ==========");
-console.log("CLOUD_NAME:", process.env.CLOUD_NAME);
-console.log("CLOUD_API_KEY:", process.env.CLOUD_API_KEY);
-console.log(
-  "CLOUD_API_SECRET:",
-  process.env.CLOUD_API_SECRET ? "Present" : "Missing"
-);
-console.log("======================================");
+// fail fast if env vars missing, instead of silently running broken
+if (
+  !process.env.CLOUD_NAME ||
+  !process.env.CLOUD_API_KEY ||
+  !process.env.CLOUD_API_SECRET
+) {
+  throw new Error("Missing Cloudinary env vars. Check your .env file.");
+}
+// removed all console.log of secrets — was leaking API key/secret to logs
 
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
@@ -21,6 +21,7 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "wanderlust_DEV",
+    allowed_formats: ["jpeg", "png", "jpg", "webp"], // restrict upload types
   },
 });
 

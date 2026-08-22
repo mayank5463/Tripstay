@@ -93,6 +93,14 @@ router.get("/map-data", async (req, res) => {
   res.json(geoJSON);
 });
 
+// ============================================
+// NEW: city typeahead data for the navbar search bar — must be ABOVE /:id
+// for the exact same reason /new and /map-data are: Express matches routes
+// top-to-bottom, and "/:id" would otherwise catch "/api/cities" first and
+// try to treat "api" as a listing id.
+// ============================================
+router.get("/api/cities", wrapAsync(listingController.cityIndex));
+
 router
   .route("/:id")
   .get(wrapAsync(listingController.showlisting))

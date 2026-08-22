@@ -1,173 +1,921 @@
 <% layout("/layouts/boilerplate") -%>
 
+<%
+  // Split the listings: a small "hero" batch sits beside the map (2 cols
+  // when the map is open, 4 when it's closed), everything else flows in a
+  // full-width 4-per-row grid underneath — so there's never a stretch of
+  // empty page below the map, on open OR closed state.
+  const HERO_COUNT = 4;
+  const heroListings = allListings.slice(0, HERO_COUNT);
+  const restListings = allListings.slice(HERO_COUNT);
+%>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
+  :root {
+    --ts-primary: #0f4c3a;
+    --ts-accent: #c9a227;
+    --ts-accent-soft: #e8c766;
+    --ts-ink: #17211d;
+    --ts-muted: #6b7770;
+    --ts-bg: #faf8f5;
+    --ts-border: #e6e3db;
+    --ts-radius: 1.1rem;
+
+    /* Single source of truth for grid rhythm — both the hero grid and the
+       full grid read gap/margin from these two tokens, so "row 1" (hero)
+       and "row 2+" (full) can never drift out of sync with each other,
+       at any breakpoint. Change the rhythm here, once. */
+    --ts-row-gap: 2rem;
+    --ts-col-gap: 1.6rem;
+
+    /* These describe "the width one column would be IF the row were
+       completely full" for a 2-column and a 4-column layout. Paired with
+       `repeat(auto-fit, ...)` below (instead of a hard `repeat(2, 1fr)` /
+       `repeat(4, 1fr)`), this is what removes the dead strip on the right
+       of a row that has fewer cards than columns: auto-fit collapses any
+       track with nothing in it down to 0 width, so the real cards stretch
+       (the `1fr` in each minmax) to fill the space that empty tracks would
+       otherwise have reserved. A fixed `repeat(4, 1fr)` never collapses —
+       it always reserves 4 tracks even for 1 card, which is exactly what
+       was leaving whitespace on a short first row. */
+    --ts-col-2: minmax(max(210px, calc((100% - var(--ts-col-gap)) / 2)), 1fr);
+    --ts-col-4: minmax(max(210px, calc((100% - 3 * var(--ts-col-gap)) / 4)), 1fr);
+
+    /* Named z-index tokens instead of scattered magic numbers — every
+       stacked layer is listed here once, in actual stacking order, so a
+       future addition can be slotted in without silently landing under
+       (or over) something it shouldn't. */
+    --z-filters: 25;
+    --z-search-overlay: 20;
+    --z-map-collapse-btn: 21;
+    --z-suggestions: 45;   /* above the preview card: a dropdown must never be hidden behind it */
+    --z-preview-card: 40;
+    --z-mobile-map-close: 41;
+  }
+
+  body { font-family: "Inter", sans-serif; color: var(--ts-ink); background: var(--ts-bg); }
+  .ts-page { max-width: 1500px; margin: 0 auto; padding: 0 1.25rem; }
+
+  /* ── Filters ─────────────────────────────────────── */
   #filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    display: flex; align-items: center; gap: 0.25rem;
+    overflow-x: auto; scrollbar-width: none;
+    position: sticky; top: 0; background: var(--ts-bg); z-index: var(--z-filters);
+    padding: 0.75rem 0;
   }
-
-  .filter{
-    text-align: center;
-    margin-right: 2rem;
-    margin-top: 2rem;
-    opacity: 0.7;
+  /* NOTE: if the boilerplate layout has its own fixed/sticky top navbar,
+     give it a CSS variable for its height and swap `top: 0` above for
+     `top: var(--site-nav-height, 0px)` so this bar sticks *below* the
+     navbar instead of underneath/behind it. Left at 0 here since this
+     template has no visibility into that shared layout's markup. */
+  #filters::-webkit-scrollbar { display: none; }
+  .filter {
+    flex: 0 0 auto; text-align: center; padding: 0.7rem 1rem;
+    color: var(--ts-muted); text-decoration: none;
+    border-bottom: 2px solid transparent; border-radius: 0.6rem;
+    transition: all 0.18s ease;
   }
+  .filter i { font-size: 1.1rem; display: block; margin-bottom: 0.3rem; }
+  .filter p { font-size: 0.72rem; margin: 0; font-weight: 600; }
+  .filter:hover { color: var(--ts-primary); background: #f0ede4; }
 
-  .filter:hover{
+  /* ── Listings header row (title + actions) ───────── */
+  /* Lives OUTSIDE the two-column row now, full width, so both the hero
+     grid and the map start from the exact same top edge — "level" with
+     each other instead of the map being pushed down by its own label. */
+  .ts-listings-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 0.75rem; margin: 0.4rem 0 1.4rem;
+  }
+  .ts-listings-header h3 { font-family: 'Fraunces', serif; margin: 0; }
+  .ts-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem; }
+
+  /* Premium pill switch for "Total after taxes" — lives next to the map
+     button, visible on every screen size (not desktop-only). */
+  .ts-tax-toggle {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: #fff; border: 1px solid var(--ts-border); border-radius: 999px;
+    padding: 0.45rem 0.9rem 0.45rem 0.55rem;
+  }
+  .ts-switch { position: relative; display: inline-flex; width: 2.5rem; height: 1.4rem; flex-shrink: 0; }
+  .ts-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .ts-switch-track {
+    position: absolute; inset: 0; background: #d9d3c3; border-radius: 999px;
+    transition: background 0.2s ease;
+  }
+  .ts-switch-thumb {
+    position: absolute; top: 2px; left: 2px; width: 1.1rem; height: 1.1rem;
+    background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.28);
+    transition: transform 0.2s ease;
+  }
+  .ts-switch input:checked ~ .ts-switch-track { background: var(--ts-primary); }
+  .ts-switch input:checked ~ .ts-switch-track .ts-switch-thumb { transform: translateX(1.1rem); }
+  .ts-tax-label { font-size: 0.82rem; font-weight: 600; color: var(--ts-ink); white-space: nowrap; }
+
+  /* "Show map" pill that appears next to Create Listing once the map has
+     been collapsed — desktop only, mirrors the mobile toggle's job. */
+  .btn-show-map {
+    display: none; align-items: center; gap: 0.45rem;
+    background: var(--ts-primary); color: #fff; border: none;
+    padding: 0.5rem 1rem; border-radius: 0.6rem; font-size: 0.82rem; font-weight: 700;
+    cursor: pointer; transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 3px 10px rgba(15,76,58,0.25);
+  }
+  .btn-show-map:hover { background: #0c3d30; transform: translateY(-1px); }
+  .btn-show-map i { font-size: 0.85rem; }
+  /* Scoped to the shared outer wrapper (not .listings-page) since the
+     header now sits as a sibling above .listings-page, not inside it. */
+  .ts-listings-wrap.map-collapsed .btn-show-map { display: inline-flex; }
+  @media (max-width: 991px) { .btn-show-map { display: none !important; } }
+
+  /* ── Desktop layout ───────────────────────────────── */
+  /* CSS Grid instead of flexbox — a flex item's flex-basis can silently
+     keep reserving space even after you zero its width (that's what was
+     still leaving a gap). A grid column, by contrast, simply stops
+     existing once grid-template-columns says so — nothing to fight. */
+  .listings-page {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+    align-items: start;
+  }
+  @media (min-width: 992px) {
+    .listings-page { grid-template-columns: 58% 42%; }
+  }
+  .listings-main { min-width: 0; }
+
+  /* Height is no longer a hard-coded guess (660px/78vh) — JS measures the
+     hero grid's real rendered height (its 2 rows of cards) and sets this
+     to match exactly, so the map never runs taller or shorter than the
+     content beside it. The value below is only a first-paint fallback
+     before JS runs. Not sticky/pinned — it scrolls with the page like a
+     normal column. */
+  .listings-map-col {
+    min-width: 0;
+    height: 560px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
     opacity: 1;
-    cursor: pointer;
+    transition: opacity 0.2s ease;
   }
 
-  .filter p {
-    font-size: 0.8rem;
+  /* Two separate, decoupled concerts for a clean collapse:
+     "map-fading" only ever touches opacity (runs its transition BEFORE
+     the layout changes, so nothing pops); "map-collapsed" only ever
+     touches the actual grid/display, applied once already invisible. */
+  .ts-listings-wrap.map-fading .listings-map-col { opacity: 0; }
+  .ts-listings-wrap.map-collapsed .listings-page {
+    grid-template-columns: 1fr; gap: 0;
+  }
+  .ts-listings-wrap.map-collapsed .listings-map-col { display: none; }
 
+  @media (max-width: 991px) { .listings-map-col { display: none !important; } }
+
+  /* ── Search bar (shared visual style; positioned differently per
+     context — overlay on the desktop map, overlay on the mobile map) ── */
+  .ts-search-wrap { position: relative; }
+  .ts-search {
+    display: flex; align-items: center; gap: 0.8rem;
+    background: #fff; border: 1.5px solid var(--ts-border);
+    border-radius: var(--ts-radius); padding: 1rem 1.25rem;
+    box-shadow: 0 6px 20px rgba(15,76,58,0.09);
+    transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.2s ease;
+  }
+  .ts-search:focus-within {
+    border-color: var(--ts-accent);
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 5px rgba(201,162,39,0.16), 0 12px 28px rgba(15,76,58,0.18);
+  }
+  .ts-search i.fa-magnifying-glass {
+    width: 2.15rem; height: 2.15rem; border-radius: 50%; flex-shrink: 0;
+    background: var(--ts-primary); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 0.85rem;
+  }
+  .ts-search input {
+    border: none; outline: none; flex: 1;
+    font-family: "Inter", sans-serif; font-size: 0.97rem; font-weight: 500;
+    color: var(--ts-ink); background: transparent; letter-spacing: 0.005em;
+  }
+  .ts-search input::placeholder { color: #9aa39c; font-weight: 400; }
+  .ts-search-clear {
+    border: none; background: #f0ede4; color: var(--ts-muted);
+    width: 1.6rem; height: 1.6rem; border-radius: 50%; font-size: 0.7rem;
+    display: none; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .ts-search-clear.show { display: flex; }
+
+  .ts-suggestions {
+    position: absolute; top: calc(100% + 0.6rem); left: 0; right: 0;
+    background: #fff; border-radius: var(--ts-radius); border: 1px solid var(--ts-border);
+    box-shadow: 0 14px 34px rgba(23,33,29,0.16);
+    max-height: 320px; overflow-y: auto; z-index: var(--z-suggestions);
+    opacity: 0; transform: translateY(-6px); pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    padding: 0.35rem 0;
+  }
+  .ts-suggestions.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .ts-suggestion-heading {
+    padding: 0.65rem 1.1rem 0.4rem;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--ts-muted);
+  }
+  .ts-suggestion-item { display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1.1rem; cursor: pointer; }
+  .ts-suggestion-item:hover { background: #f5f8f4; }
+  .ts-suggestion-icon { width: 2.1rem; height: 2.1rem; border-radius: 50%; background: var(--ts-primary); color: var(--ts-accent-soft); display: flex; align-items: center; justify-content: center; font-size: 0.82rem; flex-shrink: 0; }
+  .ts-suggestion-icon.is-trending { background: var(--ts-accent); color: var(--ts-primary); }
+  .ts-suggestion-city { font-weight: 600; font-size: 0.9rem; }
+  .ts-suggestion-city mark { background: transparent; color: var(--ts-accent); font-weight: 700; }
+  .ts-suggestion-meta { font-size: 0.76rem; color: var(--ts-muted); }
+  .ts-suggestion-count { margin-left: auto; font-size: 0.7rem; color: var(--ts-primary); background: #eaf3ee; padding: 0.22rem 0.55rem; border-radius: 1rem; font-weight: 600; white-space: nowrap; }
+  .ts-suggestion-empty { padding: 1.1rem; text-align: center; color: var(--ts-muted); font-size: 0.85rem; }
+
+  /* Desktop search sits as a floating overlay on top of the map itself
+     (same idea as the mobile overlay below) — this is what keeps the map's
+     visible top edge level with the hero grid's top edge, since nothing
+     sits above the map pushing it down anymore. Right offset (3.6rem)
+     is deliberately wider than the collapse button's own footprint
+     (2.4rem + 1rem inset = 3.4rem) so the search bar never touches it. */
+  .desktop-search-overlay {
+    position: absolute; top: 0.9rem; left: 0.9rem; right: 3.6rem; z-index: var(--z-search-overlay);
+  }
+  .desktop-search-overlay .ts-search { padding: 0.65rem 0.95rem; border-radius: 1.4rem; }
+  .desktop-search-overlay .ts-search i.fa-magnifying-glass { width: 1.8rem; height: 1.8rem; font-size: 0.75rem; }
+  .desktop-search-overlay .ts-search input { font-size: 0.85rem; }
+  .desktop-search-overlay .ts-suggestions { max-height: 280px; }
+
+  /* ── Listings grids ───────────────────────────────── */
+  /* Two grids share the same card styling and the same row rhythm: a
+     "hero" batch beside the map, and a full-width batch underneath. The
+     gap between them (--ts-row-gap, via margin-top below) matches the
+     row-gap used inside each grid, so the seam between "row 1" and
+     "row 2" reads exactly like every other row gap — no oversized dead
+     strip, on open OR collapsed map state, and no risk of the two ever
+     drifting apart since both read the same custom property. */
+  .listings-hero-grid,
+  .listings-full-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: var(--ts-row-gap) var(--ts-col-gap);
+  }
+  .listings-full-grid { margin-top: var(--ts-row-gap); }
+
+  @media (min-width: 992px) {
+    .listings-hero-grid { grid-template-columns: repeat(auto-fit, var(--ts-col-2)); }
+    .listings-full-grid { grid-template-columns: repeat(auto-fit, var(--ts-col-4)); }
+  }
+  /* When the map is collapsed, the hero grid gives up its narrow 2-col
+     layout and adopts the SAME column formula as the full grid below it —
+     this is what makes "row 1" indistinguishable from "row 2 / row 3":
+     identical column count, identical column width, identical gap tokens,
+     at every breakpoint, AND no right-side gap if the hero batch (or the
+     grid below it, on a partial last row) has fewer cards than columns. */
+  .ts-listings-wrap.map-collapsed .listings-hero-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  @media (min-width: 992px) {
+    .ts-listings-wrap.map-collapsed .listings-hero-grid { grid-template-columns: repeat(auto-fit, var(--ts-col-4)); }
   }
 
- .tax-info{
-  display: none;
- }
+  .listing-links { text-decoration: none; color: inherit; display: block; border-radius: 1.1rem; }
+  .listing-card { border: none; background: transparent; transition: transform 0.2s ease; }
+  .listing-links:hover .listing-card { transform: translateY(-3px); }
+  .listing-links.ts-highlight .listing-card { animation: ts-pulse 1.4s ease 2; }
+  @keyframes ts-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(201,162,39,0); }
+    50% { box-shadow: 0 0 0 8px rgba(201,162,39,0.25); border-radius: 1.1rem; }
+  }
+  .img-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; overflow: hidden; border-radius: 1rem; }
+  .img-wrapper img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+  .listing-links:hover .img-wrapper img { transform: scale(1.07); }
+  .listing-card .card-body { padding: 0.65rem 0.1rem 0; }
+  .listing-card .card-text { margin-bottom: 0.1rem; font-size: 0.95rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .listing-price { font-size: 0.9rem; color: var(--ts-muted); }
+  .listing-price b { color: var(--ts-ink); font-weight: 700; }
+  .listing-price .tax-info { color: var(--ts-primary); font-weight: 600; }
 
-.tax-toggle {
-  border: 1px solid black;
-  border-radius: 1rem;
-  height: 3.25rem;
-  padding: 1rem;
-  margin-left: 2rem;
-  display: flex;
-  align-items: center;
-}
+  /* ── Map panel ────────────────────────────────────── */
+  .map-panel {
+    position: relative; flex: 1 1 auto; min-height: 0; height: 100%;
+    border-radius: var(--ts-radius); overflow: hidden;
+    box-shadow: 0 10px 30px rgba(15,76,58,0.12);
+  }
+  #all-listings-map, #mobile-listings-map {
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg,#e9f0ea,#f3f1e8);
+  }
+  .mapboxgl-canvas { filter: saturate(0.85) contrast(1.05) sepia(0.05); }
+  .mapboxgl-popup { display: none; } /* we render our own centered card instead */
 
+  .map-collapse-btn {
+    position: absolute; top: 1rem; right: 1rem; z-index: var(--z-map-collapse-btn);
+    width: 2.4rem; height: 2.4rem; border-radius: 50%; border: none;
+    background: #fff; color: var(--ts-ink); box-shadow: 0 3px 12px rgba(0,0,0,0.18);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .map-collapse-btn:hover { transform: scale(1.08); background: var(--ts-primary); color: #fff; }
 
+  /* Individual price pill */
+  .map-price-pill {
+    background: var(--ts-primary); color: #fff; font-size: 0.76rem; font-weight: 700;
+    padding: 0.42rem 0.7rem; border-radius: 1.3rem; border: 1.5px solid transparent;
+    box-shadow: 0 3px 8px rgba(15,76,58,0.35); cursor: pointer; white-space: nowrap;
+    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  .map-price-pill:hover, .map-price-pill.ts-active {
+    background: #fff; color: var(--ts-primary); border-color: var(--ts-accent);
+    transform: scale(1.1);
+  }
 
+  /* Cluster bubble — size communicates count, no per-pixel jitter since it
+     only recomputes on moveend, never mid-gesture. */
+  .map-cluster {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ts-primary); color: #fff; font-weight: 700;
+    border-radius: 50%; border: 3px solid rgba(255,255,255,0.85);
+    box-shadow: 0 4px 12px rgba(15,76,58,0.4); cursor: pointer;
+    transition: transform 0.15s ease;
+    font-family: "Inter", sans-serif;
+  }
+  .map-cluster:hover { transform: scale(1.08); }
+  .map-cluster.size-sm { width: 2.3rem; height: 2.3rem; font-size: 0.78rem; }
+  .map-cluster.size-md { width: 2.8rem; height: 2.8rem; font-size: 0.88rem; background: #0c3d30; }
+  .map-cluster.size-lg { width: 3.4rem; height: 3.4rem; font-size: 1rem; background: var(--ts-accent); color: #17211d; }
 
-  
+  /* Centered preview card — fixed in the middle of the map box, so it
+     never clips at the edges or oscillates near markers close together. */
+  .ts-preview-card {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    width: 190px; background: #fff; border-radius: 1rem;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.28);
+    opacity: 0; pointer-events: none; z-index: var(--z-preview-card);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    overflow: hidden;
+  }
+  .ts-preview-card.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .ts-preview-card img { width: 100%; height: 110px; object-fit: cover; display: block; }
+  .ts-preview-card .pv-body { padding: 0.6rem 0.7rem; }
+  .ts-preview-card .pv-title { font-size: 0.84rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ts-preview-card .pv-loc { font-size: 0.72rem; color: var(--ts-muted); margin-top: 0.1rem; }
+  .ts-preview-card .pv-price { font-size: 0.84rem; color: var(--ts-primary); font-weight: 700; margin-top: 0.3rem; }
+
+  .mapboxgl-cooperative-gesture-screen { border-radius: var(--ts-radius); font-family: "Inter", sans-serif; font-size: 0.78rem; }
+
+  /* ── Mobile inline map box ────────────────────────── */
+  .mobile-map-btn {
+    display: none; width: 100%; margin: 0.75rem 0 0.25rem;
+    background: var(--ts-primary); color: #fff; border: none; padding: 0.75rem;
+    border-radius: 0.9rem; font-weight: 700; font-size: 0.85rem;
+    align-items: center; justify-content: center; gap: 0.5rem;
+  }
+  @media (max-width: 991px) { .mobile-map-btn { display: inline-flex; } }
+
+  .mobile-map-box {
+    max-height: 0; overflow: hidden; opacity: 0;
+    transition: max-height 0.28s ease, opacity 0.2s ease, margin 0.28s ease;
+    border-radius: var(--ts-radius); box-shadow: 0 10px 26px rgba(15,76,58,0.16);
+  }
+  .mobile-map-box.open { max-height: 340px; opacity: 1; margin-bottom: 1rem; }
+
+  .mobile-map-inner { position: relative; height: 320px; }
+  #mobile-listings-map { height: 100%; border-radius: var(--ts-radius); }
+
+  .mobile-map-close {
+    position: absolute; top: 0.6rem; right: 0.6rem; z-index: var(--z-mobile-map-close);
+    width: 2rem; height: 2rem; border-radius: 50%; border: none;
+    background: #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    display: flex; align-items: center; justify-content: center; font-size: 0.85rem;
+  }
+
+  /* Right offset (3rem) deliberately clears the 2rem-wide close button
+     (0.6rem inset + 2rem width = 2.6rem) so the search bar and close
+     button never overlap at any input length. */
+  .mobile-search-overlay { position: absolute; top: 0.6rem; left: 0.6rem; right: 3rem; z-index: var(--z-search-overlay); }
+  .mobile-search-overlay .ts-search { padding: 0.5rem 0.8rem; border-radius: 1.5rem; }
+  .mobile-search-overlay .ts-search i.fa-magnifying-glass { width: 1.6rem; height: 1.6rem; font-size: 0.7rem; }
+  .mobile-search-overlay .ts-search input { font-size: 0.8rem; }
+  .mobile-search-overlay .ts-suggestions { max-height: 180px; }
+  .mobile-map-inner .ts-preview-card { width: 150px; }
+  .mobile-map-inner .ts-preview-card img { height: 85px; }
+
+  /* ── Small screens ────────────────────────────────── */
+  @media (max-width: 575px) {
+    /* Tighten the row rhythm token itself (not a standalone margin
+       override) so the hero→full seam and every internal row gap shrink
+       together — previously the margin was hand-tuned separately from
+       the grid gap and could drift out of step with it on this
+       breakpoint. */
+    :root { --ts-row-gap: 1.5rem; }
+    .ts-search { padding: 0.7rem 0.9rem; }
+    .ts-listings-header { flex-direction: column; align-items: flex-start; }
+    .ts-header-actions { width: 100%; justify-content: space-between; }
+  }
 </style>
 
+<div class="ts-page">
+  <div id="filters">
+    <a href="/listings/category/Trending" class="filter"><i class="fa-solid fa-fire"></i><p>Trending</p></a>
+    <a href="/listings/category/Rooms" class="filter"><i class="fa-solid fa-hotel"></i><p>Rooms</p></a>
+    <a href="/listings/category/Iconic%20Cities" class="filter"><i class="fa-solid fa-mountain-city"></i><p>Iconic Cities</p></a>
+    <a href="/listings/category/Mountains" class="filter"><i class="fa-solid fa-mountain"></i><p>Mountains</p></a>
+    <a href="/listings/category/Castles" class="filter"><i class="fa-solid fa-landmark-dome"></i><p>Castles</p></a>
+    <a href="/listings/category/Amazing%20Pools" class="filter"><i class="fa-solid fa-person-swimming"></i><p>Amazing Pools</p></a>
+    <a href="/listings/category/Camping" class="filter"><i class="fa-solid fa-campground"></i><p>Camping</p></a>
+    <a href="/listings/category/Farms" class="filter"><i class="fa-solid fa-cow"></i><p>Farms</p></a>
+    <a href="/listings/category/Arctic" class="filter"><i class="fa-solid fa-igloo"></i><p>Arctic</p></a>
+  </div>
 
-<div id="filters">
+  <button class="mobile-map-btn" id="mobileMapToggle" type="button">
+    <i class="fa-solid fa-map"></i> Show Map
+  </button>
 
-  <a href="/listings/category/Trending" class="filter">
-    <div><i class="fa-solid fa-fire"></i></div>
-    <p>Trending</p>
-  </a>
-
-  <a href="/listings/category/Rooms" class="filter">
-    <div><i class="fa-solid fa-hotel"></i></div>
-    <p>Rooms</p>
-  </a>
-
-  <a href="/listings/category/Iconic%20Cities" class="filter">
-    <div><i class="fa-solid fa-mountain-city"></i></div>
-    <p>Iconic Cities</p>
-  </a>
-
-  <a href="/listings/category/Mountains" class="filter">
-    <div><i class="fa-solid fa-mountain"></i></div>
-    <p>Mountains</p>
-  </a>
-
-  <a href="/listings/category/Castles" class="filter">
-    <div><i class="fa-solid fa-landmark-dome"></i></div>
-    <p>Castles</p>
-  </a>
-
-  <a href="/listings/category/Amazing%20Pools" class="filter">
-    <div><i class="fa-solid fa-person-swimming"></i></div>
-    <p>Amazing Pools</p>
-  </a>
-
-  <a href="/listings/category/Camping" class="filter">
-    <div><i class="fa-solid fa-campground"></i></div>
-    <p>Camping</p>
-  </a>
-
-  <a href="/listings/category/Farms" class="filter">
-    <div><i class="fa-solid fa-cow"></i></div>
-    <p>Farms</p>
-  </a>
-
-  <a href="/listings/category/Arctic" class="filter">
-    <div><i class="fa-solid fa-igloo"></i></div>
-    <p>Arctic</p>
-  </a>
-
-
-
-  <div class="tax-toggle">
-    <div class="form-check-reverse form-switch">
-      <input class="form-check-input" type="checkbox" role="switch" id="switchCheckDefault">
-      <label class="form-check-label" for="switchCheckDefault">Display Total after Taxes</label>
+  <div class="mobile-map-box" id="mobileMapBox">
+    <div class="mobile-map-inner">
+      <button class="mobile-map-close" id="mobileMapClose" type="button" aria-label="Close map">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="mobile-search-overlay ts-search-wrap">
+        <div class="ts-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="citySearchMobile" placeholder="Search listings in each city..." autocomplete="off" />
+          <button class="ts-search-clear" id="clearMobile" type="button"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="ts-suggestions" id="suggestionsMobile"></div>
+      </div>
+      <div id="mobile-listings-map"></div>
+      <div class="ts-preview-card" id="previewMobile"></div>
     </div>
   </div>
-    
-</div>
 
+  <!-- Everything that changes when the map collapses/reopens (the "Show
+       map" button, the map column, the hero grid's column count, the row
+       gap) lives inside this one wrapper, so a single toggled class can
+       reach all of them reliably. -->
+  <div class="ts-listings-wrap" id="listingsWrap">
 
-
-
-
-
-
-
-
-
-
-
-<!-- Listings grid -->
- <h3>All Listings</h3>
-
-  <div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1 g-4 listings-grid">
-    <% for (let listing of allListings) { %>
-      <a href="/listings/<%= listing._id %>" class="listing-links">
-        <div class="card listing-card">
-          <div class="img-wrapper">
-            <img src="<%= listing.image.url %>" class="card-img-top" alt="listing_image" />
-          </div>
-          <div class="card-body">
-            <p class="card-text"><b><%= listing.title %></b></p><br/>
-            &#8377; <%= listing.price %>/night
-            <i class="tax-info">&nbsp;&nbsp;&nbsp; +18% GST</i>
-          
-          </p>
-
-          </div>
+    <!-- Header sits above BOTH columns, full width — this is what keeps
+         the hero grid and the map level with each other; nothing above the
+         map pushes it down relative to the grid anymore. -->
+    <div class="ts-listings-header">
+      <h3>Stays across India and World</h3>
+      <div class="ts-header-actions">
+        <div class="ts-tax-toggle">
+          <label class="ts-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="switchCheckDefault" />
+            <span class="ts-switch-track"><span class="ts-switch-thumb"></span></span>
+          </label>
+          <span class="ts-tax-label">Total after taxes</span>
         </div>
-      </a>
+        <button class="btn-show-map" id="mapReopenTab" type="button">
+          <i class="fa-solid fa-map"></i> Show map
+        </button>
+        <a href="/listings/new" class="btn btn-dark btn-sm">+ Create New Listing</a>
+      </div>
+    </div>
+
+    <div class="listings-page" id="listingsPage">
+      <div class="listings-main">
+        <div class="listings-hero-grid">
+          <% for (let listing of heroListings) { %>
+            <a href="/listings/<%= listing._id %>" class="listing-links" data-location="<%= listing.location %>">
+              <div class="card listing-card">
+                <div class="img-wrapper">
+                  <img src="<%= listing.image.url %>" alt="<%= listing.title %>" loading="lazy" />
+                </div>
+                <div class="card-body">
+                  <p class="card-text"><%= listing.title %></p>
+                  <p class="listing-price" data-base-price="<%= listing.price %>">
+                    <b class="price-amount">&#8377;<%= listing.price.toLocaleString("en-IN") %></b> / night
+                    <i class="tax-info">&nbsp;incl. GST</i>
+                  </p>
+                </div>
+              </div>
+            </a>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="listings-map-col">
+        <div class="map-panel">
+          <div class="desktop-search-overlay ts-search-wrap">
+            <div class="ts-search">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="citySearchDesktop" placeholder="Search listings in each city..." autocomplete="off" />
+              <button class="ts-search-clear" id="clearDesktop" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="ts-suggestions" id="suggestionsDesktop"></div>
+          </div>
+          <button class="map-collapse-btn" id="collapseMapBtn" type="button" title="Hide map">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          <div id="all-listings-map"></div>
+          <div class="ts-preview-card" id="previewDesktop"></div>
+        </div>
+      </div>
+    </div>
+
+    <% if (restListings.length > 0) { %>
+    <div class="listings-full-grid">
+      <% for (let listing of restListings) { %>
+        <a href="/listings/<%= listing._id %>" class="listing-links" data-location="<%= listing.location %>">
+          <div class="card listing-card">
+            <div class="img-wrapper">
+              <img src="<%= listing.image.url %>" alt="<%= listing.title %>" loading="lazy" />
+            </div>
+            <div class="card-body">
+              <p class="card-text"><%= listing.title %></p>
+              <p class="listing-price" data-base-price="<%= listing.price %>">
+                <b class="price-amount">&#8377;<%= listing.price.toLocaleString("en-IN") %></b> / night
+                <i class="tax-info">&nbsp;incl. GST</i>
+              </p>
+            </div>
+          </div>
+        </a>
+      <% } %>
+    </div>
     <% } %>
   </div>
+</div>
 
-
-<!-- Page header
-<div class="d-flex justify-content-between align-items-center  mb-3">
-  <h3 class="mt-4">Listing on Map</h3>
-  
-  <a href="/listings/new" class="btn btn-dark mt-4">+ Create New Listing</a>
-</div>  -->
-
-  <!-- Map section
-<div id="all-listings-map" class="map-container"></div>
-<script>
-  const mapToken = "<%= process.env.MAP_TOKEN %>";
-</script> -->
-
-
-<script>
-  let taxSwitch = document.getElementById("switchCheckDefault");
-
-  taxSwitch.addEventListener("click", () => {
-    let taxInfo = document.getElementsByClassName("tax-info");
-    for(info of taxInfo) {
-      if(info.style.display  !="inline"){
-        info.style.display ="inline";
-      } else{
-        info.style.display ="none";
-      }
-      
-    }
-  });
+<script type="application/json" id="map-listings-data">
+  <%- JSON.stringify(
+    allListings
+      .filter(l => l.geometry && l.geometry.coordinates)
+      .map(l => ({
+        id: l._id, title: l.title, price: l.price, image: l.image.url,
+        location: l.location, country: l.country, coordinates: l.geometry.coordinates,
+      }))
+  ).replace(/</g, "\\u003c") %>
 </script>
 
+<script>
+const mapToken = "<%= process.env.MAP_TOKEN %>";
+const mapListings = JSON.parse(document.getElementById("map-listings-data").textContent);
 
-<script src="/js/allListingsMap.js"></script>
+// Bhopal, MP — India's geographic centre, used only as camera anchor.
+const INDIA_CENTER = [77.4126, 23.2599];
+const INDIA_ZOOM = 4.1;
+const MOBILE_INDIA_ZOOM = 3.5;
+const CLUSTER_PIXEL_RADIUS = 55; // markers within this many px get grouped
+const GST_RATE = 0.18;
 
+const cityIndex = Object.values(
+  mapListings.reduce((acc, l) => {
+    if (!acc[l.location]) acc[l.location] = { location: l.location, country: l.country, coordinates: l.coordinates, count: 0 };
+    acc[l.location].count++;
+    return acc;
+  }, {})
+);
+
+// Top cities by stay count — shown as "Popular destinations" the moment
+// the search box gets focus, before the user has typed anything.
+const topCities = [...cityIndex].sort((a, b) => b.count - a.count).slice(0, 7);
+
+function formatINR(amount) {
+  return "₹" + Math.round(amount).toLocaleString("en-IN");
+}
+
+// Toggling "Total after taxes" swaps every visible price for the real,
+// computed GST-inclusive total (base × 1.18) — not just a "+18%" label.
+function applyTaxDisplay(checked) {
+  document.querySelectorAll(".listing-price").forEach(el => {
+    const base = parseFloat(el.dataset.basePrice);
+    const amountEl = el.querySelector(".price-amount");
+    if (!amountEl || Number.isNaN(base)) return;
+    amountEl.textContent = formatINR(checked ? base * (1 + GST_RATE) : base);
+  });
+  document.querySelectorAll(".tax-info").forEach(el => {
+    el.style.display = checked ? "inline" : "none";
+  });
+}
+
+document.getElementById("switchCheckDefault").addEventListener("change", (e) => {
+  applyTaxDisplay(e.target.checked);
+});
+</script>
+
+<script>
+function loadMapboxGL(cb) {
+  if (window.mapboxgl) return cb();
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css";
+  document.head.appendChild(link);
+  const script = document.createElement("script");
+  script.src = "https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js";
+  script.onload = cb;
+  document.body.appendChild(script);
+}
+
+const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// True only when the element actually has visible box area — guards every
+// map resize/recluster call below so nothing runs against a display:none
+// container mid-collapse-transition (which used to risk a zero-size
+// Mapbox canvas and misplaced markers for a frame).
+function isVisible(el) {
+  return !!el && el.offsetParent !== null && el.getBoundingClientRect().width > 0;
+}
+
+function sizeClassFor(count) {
+  if (count >= 15) return "size-lg";
+  if (count >= 5) return "size-md";
+  return "size-sm";
+}
+
+function showPreview(previewEl, listing) {
+  previewEl.innerHTML = `
+    <img src="${listing.image}" alt="">
+    <div class="pv-body">
+      <div class="pv-title">${listing.title}</div>
+      <div class="pv-loc">${listing.location}, ${listing.country}</div>
+      <div class="pv-price">₹${listing.price.toLocaleString("en-IN")} / night</div>
+    </div>`;
+  previewEl.classList.add("show");
+}
+function hidePreview(previewEl) { previewEl.classList.remove("show"); }
+
+// ── Custom pixel-distance clustering ──────────────────────────────
+// Recomputes only on moveend/zoomend (never mid-drag/mid-pinch), so
+// nothing shifts or oscillates while the user is actively interacting.
+function recluster(map, markersRef, previewEl) {
+  const container = map.getContainer();
+  if (!isVisible(container)) return; // skip while hidden/collapsed — nothing to place markers on
+
+  markersRef.forEach(m => m.remove());
+  markersRef.length = 0;
+
+  const points = mapListings.map(l => ({
+    listing: l,
+    px: map.project(l.coordinates),
+  }));
+
+  const used = new Array(points.length).fill(false);
+  const groups = [];
+
+  for (let i = 0; i < points.length; i++) {
+    if (used[i]) continue;
+    const group = [points[i]];
+    used[i] = true;
+    for (let j = i + 1; j < points.length; j++) {
+      if (used[j]) continue;
+      const dx = points[i].px.x - points[j].px.x;
+      const dy = points[i].px.y - points[j].px.y;
+      if (Math.sqrt(dx * dx + dy * dy) < CLUSTER_PIXEL_RADIUS) {
+        group.push(points[j]);
+        used[j] = true;
+      }
+    }
+    groups.push(group);
+  }
+
+  groups.forEach(group => {
+    if (group.length === 1) {
+      const listing = group[0].listing;
+      const el = document.createElement("div");
+      el.className = "map-price-pill";
+      el.textContent = "₹" + listing.price.toLocaleString("en-IN");
+      el.addEventListener("click", () => window.location.href = "/listings/" + listing.id);
+
+      if (canHover && previewEl) {
+        el.addEventListener("mouseenter", () => { el.classList.add("ts-active"); showPreview(previewEl, listing); });
+        el.addEventListener("mouseleave", () => { el.classList.remove("ts-active"); hidePreview(previewEl); });
+      }
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat(listing.coordinates).addTo(map);
+      markersRef.push(marker);
+    } else {
+      const lng = group.reduce((s, p) => s + p.listing.coordinates[0], 0) / group.length;
+      const lat = group.reduce((s, p) => s + p.listing.coordinates[1], 0) / group.length;
+
+      const el = document.createElement("div");
+      el.className = "map-cluster " + sizeClassFor(group.length);
+      el.textContent = group.length;
+      el.addEventListener("click", () => {
+        const bounds = new mapboxgl.LngLatBounds();
+        group.forEach(p => bounds.extend(p.listing.coordinates));
+        map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 500 });
+      });
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: "center" }).setLngLat([lng, lat]).addTo(map);
+      markersRef.push(marker);
+    }
+  });
+}
+
+function buildMap(containerId, previewId, zoom) {
+  if (!mapToken) return null;
+  mapboxgl.accessToken = mapToken;
+
+  const map = new mapboxgl.Map({
+    container: containerId,
+    style: "mapbox://styles/mapbox/streets-v12",
+    center: INDIA_CENTER,
+    zoom: zoom,
+    cooperativeGestures: true, // two fingers to pan/zoom map; one finger scrolls the page
+  });
+  map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+  const previewEl = document.getElementById(previewId);
+  const markersRef = [];
+  const doRecluster = () => recluster(map, markersRef, previewEl);
+
+  map.on("load", doRecluster);
+  map.on("moveend", doRecluster); // fires once gesture/animation settles — no oscillation
+
+  map._tsMarkers = markersRef;
+  map._tsRecluster = doRecluster;
+  return map;
+}
+
+// Wraps resize + recluster together, guarded so it's a no-op while the
+// map's container is hidden (collapsed on desktop, off-canvas on mobile).
+function safeResizeAndRecluster(map) {
+  if (!map) return;
+  const container = map.getContainer();
+  if (!isVisible(container)) return;
+  map.resize();
+  map._tsRecluster();
+}
+
+function flyToCity(map, coordinates) {
+  if (!map) return;
+  map.flyTo({ center: coordinates, zoom: 11, essential: true, curve: 1.4, speed: 0.9 });
+}
+
+function highlightGridCity(location) {
+  document.querySelectorAll(".listing-links").forEach(a => a.classList.remove("ts-highlight"));
+  const match = document.querySelector('.listing-links[data-location="' + CSS.escape(location) + '"]');
+  if (match) {
+    match.classList.add("ts-highlight");
+    match.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function setupSearch(inputId, suggestionsId, clearId, getMap, defaultZoom) {
+  const input = document.getElementById(inputId);
+  const box = document.getElementById(suggestionsId);
+  const clearBtn = document.getElementById(clearId);
+
+  // heading + trending flag let the same renderer serve both "Popular
+  // destinations" (empty input, focus) and live "Matching cities" results.
+  function render(list, { query = "", heading = "", trending = false } = {}) {
+    box.innerHTML = "";
+    if (heading) {
+      const h = document.createElement("div");
+      h.className = "ts-suggestion-heading";
+      h.textContent = heading;
+      box.appendChild(h);
+    }
+    if (list.length === 0) {
+      box.innerHTML += '<div class="ts-suggestion-empty">No cities found</div>';
+    } else {
+      list.slice(0, 7).forEach(city => {
+        const idx = query ? city.location.toLowerCase().indexOf(query.toLowerCase()) : -1;
+        const label = query && idx > -1
+          ? city.location.slice(0, idx) + "<mark>" + city.location.slice(idx, idx + query.length) + "</mark>" + city.location.slice(idx + query.length)
+          : city.location;
+        const item = document.createElement("div");
+        item.className = "ts-suggestion-item";
+        item.innerHTML = `
+          <div class="ts-suggestion-icon${trending ? " is-trending" : ""}"><i class="fa-solid ${trending ? "fa-arrow-trend-up" : "fa-location-dot"}"></i></div>
+          <div>
+            <div class="ts-suggestion-city">${label}</div>
+            <div class="ts-suggestion-meta">${city.country}</div>
+          </div>
+          <div class="ts-suggestion-count">${city.count} stays</div>`;
+        item.addEventListener("click", () => {
+          input.value = city.location;
+          box.classList.remove("open");
+          clearBtn.classList.add("show");
+          flyToCity(getMap(), city.coordinates);
+          highlightGridCity(city.location);
+        });
+        box.appendChild(item);
+      });
+    }
+    box.classList.add("open");
+  }
+
+  function renderPopular() {
+    render(topCities, { heading: "Popular destinations", trending: true });
+  }
+
+  function renderMatches(q) {
+    render(cityIndex.filter(c => c.location.toLowerCase().includes(q.toLowerCase())), { query: q, heading: "Matching cities" });
+  }
+
+  input.addEventListener("input", () => {
+    const q = input.value.trim();
+    clearBtn.classList.toggle("show", q.length > 0);
+    if (!q) { renderPopular(); return; }
+    renderMatches(q);
+  });
+
+  input.addEventListener("focus", () => {
+    const q = input.value.trim();
+    if (q) renderMatches(q); else renderPopular();
+  });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".ts-search-wrap")) box.classList.remove("open"); });
+
+  clearBtn.addEventListener("click", () => {
+    input.value = "";
+    clearBtn.classList.remove("show");
+    box.classList.remove("open");
+    document.querySelectorAll(".listing-links").forEach(a => a.classList.remove("ts-highlight"));
+    const map = getMap();
+    if (map) map.flyTo({ center: INDIA_CENTER, zoom: defaultZoom });
+  });
+}
+
+let desktopMap = null, mobileMap = null;
+
+// Keeps the map column's height locked to the hero grid's real rendered
+// height (its 2 rows of cards) — this is what removes the dead space that
+// used to appear when a taller/shorter fixed map height didn't match the
+// grid beside it, and it's what makes "2 listing rows tall" literal rather
+// than an approximation.
+function syncMapColHeight() {
+  const heroGrid = document.querySelector(".listings-hero-grid");
+  const mapCol = document.querySelector(".listings-map-col");
+  if (!heroGrid || !mapCol) return;
+  const h = heroGrid.getBoundingClientRect().height;
+  if (h > 0) mapCol.style.height = h + "px";
+}
+
+loadMapboxGL(() => {
+  const listingsWrap = document.getElementById("listingsWrap");
+  const mapCol = document.querySelector(".listings-map-col");
+  const heroGrid = document.querySelector(".listings-hero-grid");
+
+  if (window.matchMedia("(min-width: 992px)").matches) {
+    syncMapColHeight(); // set the correct height before the map is even created
+    desktopMap = buildMap("all-listings-map", "previewDesktop", INDIA_ZOOM);
+    setupSearch("citySearchDesktop", "suggestionsDesktop", "clearDesktop", () => desktopMap, INDIA_ZOOM);
+
+    // Debounced — fires once after size settles, not on every animation
+    // frame, so the collapse/expand transition stays smooth instead of
+    // freezing on repeated resize+recluster work. Guarded internally via
+    // safeResizeAndRecluster so a resize fired while the column is
+    // display:none (collapsed) is simply skipped rather than acting on a
+    // zero-size canvas. Watches the map column itself (width changes from
+    // collapse/expand, height changes from the sync below) and keeps
+    // Mapbox's internal canvas in step with it.
+    const debouncedMapResize = debounce(() => safeResizeAndRecluster(desktopMap), 120);
+    new ResizeObserver(debouncedMapResize).observe(mapCol);
+
+    // Watches the hero grid for height changes (responsive reflow, font
+    // load, card text wrapping) and re-syncs the map column to match.
+    const debouncedHeightSync = debounce(syncMapColHeight, 120);
+    if (heroGrid) new ResizeObserver(debouncedHeightSync).observe(heroGrid);
+  }
+
+  // Map is built exactly once above — collapsing/reopening only toggles the
+  // "map-collapsed" class (width/opacity), it never tears the map instance
+  // down or rebuilds it, so its center/zoom/markers stay put every time.
+  document.getElementById("collapseMapBtn")?.addEventListener("click", () => {
+    listingsWrap.classList.add("map-fading");
+    setTimeout(() => {
+      listingsWrap.classList.add("map-collapsed");
+      listingsWrap.classList.remove("map-fading");
+    }, 200);
+  });
+  document.getElementById("mapReopenTab")?.addEventListener("click", () => {
+    listingsWrap.classList.remove("map-collapsed");
+    listingsWrap.classList.add("map-fading");
+    syncMapColHeight();
+    requestAnimationFrame(() => {
+      listingsWrap.classList.remove("map-fading");
+      safeResizeAndRecluster(desktopMap);
+    });
+  });
+
+  const mapBox = document.getElementById("mobileMapBox");
+  const toggleBtn = document.getElementById("mobileMapToggle");
+  const closeBtn = document.getElementById("mobileMapClose");
+
+  toggleBtn.addEventListener("click", () => {
+    mapBox.classList.add("open");
+    mapBox.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    if (!mobileMap) {
+      mobileMap = buildMap("mobile-listings-map", "previewMobile", MOBILE_INDIA_ZOOM);
+      setupSearch("citySearchMobile", "suggestionsMobile", "clearMobile", () => mobileMap, MOBILE_INDIA_ZOOM);
+    }
+    mapBox.addEventListener("transitionend", function onOpen(e) {
+      if (e.propertyName !== "max-height") return;
+      mapBox.removeEventListener("transitionend", onOpen);
+      safeResizeAndRecluster(mobileMap);
+    });
+  });
+
+  closeBtn.addEventListener("click", () => mapBox.classList.remove("open"));
+});
+</script>

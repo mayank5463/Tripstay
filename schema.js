@@ -8,7 +8,8 @@ module.exports.listingSchema = Joi.object({
     country: Joi.string().required(),
     price: Joi.number().required().min(0),
     image: Joi.object({
-      url: Joi.string(),
+      url: Joi.string().uri(), // was plain string, now validates real URL
+      filename: Joi.string().allow(""), // added to match model field
     }),
     category: Joi.string().valid(
       "Trending",

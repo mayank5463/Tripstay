@@ -1,5 +1,7 @@
+require("dotenv").config();
+
 const mongoose = require("mongoose");
-const initdata = require("./data.js");       // Raw seed data (array of listing objects)
+const initdata = require("./data.js"); // Raw seed data (array of listing objects)
 const Listing = require("../models/listing.js"); // Mongoose model/schema for listings
 
 // ---------------------------------------------------------------------------
@@ -9,8 +11,7 @@ const Listing = require("../models/listing.js"); // Mongoose model/schema for li
 // The Atlas (cloud) connection string is commented out — never commit real
 // credentials to source control. If you need Atlas, load it from an
 // environment variable instead (see note at the end).
-const MONGO_URL = "mongodb://127.0.0.1:27017/wanderlust";
-// "mongodb+srv://zerodhaMayank:Mayankzerodha1122@cluster1.gxdexo5.mongodb.net/wanderlust";
+const MONGO_URL = process.env.MONGO_URL;
 
 // ---------------------------------------------------------------------------
 // FIXED OWNER ID
@@ -21,7 +22,7 @@ const MONGO_URL = "mongodb://127.0.0.1:27017/wanderlust";
 // Mongoose will cast this string to a proper ObjectId automatically when
 // inserting, as long as your Listing schema defines `owner` as:
 //   owner: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
-const OWNER_ID = "6a46dfd13f4d5fd72564b7e6";
+const OWNER_ID = "6a8761764a75749fb1e012bb";
 
 const initDB = async () => {
   // Step 1: Connect to MongoDB via Mongoose.
@@ -41,10 +42,10 @@ const initDB = async () => {
   //   spread operator, so the original item's fields are preserved and
   //   `owner` is added/overwritten on top.
   const cleanData = initdata.data
-    .filter(item => item.title)
-    .map(item => ({
+    .filter((item) => item.title)
+    .map((item) => ({
       ...item,
-      Owner: OWNER_ID,
+      owner: OWNER_ID,
     }));
 
   console.log("Total valid entries:", cleanData.length);

@@ -1,135 +1,732 @@
 <% layout("/layouts/boilerplate") -%>
-<!-- <script>
-  const  mapToken ="<%= process.env.MAP_TOKEN %>";
-  const coordinates = <%-JSON.stringify(listing.geometry.coordinates) %>;
-  const listing = <%- JSON.stringify({ title: listing.title, location: listing.location, country: listing.country, price: listing.price }) %>;
-  window.onload = () => window.scrollTo({ top: 0, behavior: "smooth" });
-</script> -->
 
+<%
+  // ---- Safe data prep (server-side, before anything reaches the browser) ----
+  const hasCoords = !!(
+    listing.geometry &&
+    Array.isArray(listing.geometry.coordinates) &&
+    listing.geometry.coordinates.length === 2 &&
+    typeof listing.geometry.coordinates[0] === "number" &&
+    typeof listing.geometry.coordinates[1] === "number"
+  );
+
+  const reviews = listing.reviews || [];
+  let avgRating = 0;
+  if (reviews.length > 0) {
+    avgRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length;
+  }
+
+  function renderStars(rating) {
+    const r = Math.round(rating);
+    let out = "";
+    for (let i = 1; i <= 5; i++) out += i <= r ? "★" : "☆";
+    return out;
+  }
+
+  const ownerName = listing.owner && listing.owner.username ? listing.owner.username : "Unknown";
+  const ownerInitial = ownerName.charAt(0).toUpperCase();
+  const coverImage = listing.image && listing.image.url
+    ? listing.image.url
+    : "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1600&auto=format&fit=crop";
+%>
 
 <script>
-  const mapToken = "<%= process.env.MAP_TOKEN %>";
-  const coordinates = <%-JSON.stringify(listing.geometry.coordinates) %>;
+  // Data handed to /js/map.js — coordinates are guaranteed to be a valid
+  // [lng, lat] pair or null, so client code never has to guess.
+  const listing = <%- JSON.stringify({ title: listing.title, location: listing.location, country: listing.country, price: listing.price }) %>;
+  const mapToken = "<%= process.env.MAP_TOKEN || '' %>";
+  const hasCoordinates = <%= hasCoords %>;
+  const coordinates = <%- hasCoords ? JSON.stringify(listing.geometry.coordinates) : 'null' %>;
+</script>
 
-  // NEW: stop browser from auto-restoring old scroll position
+<script>
+  // Stop the browser from auto-restoring old scroll position
   if ("scrollRestoration" in history) {
     history.scrollRestoration = "manual";
   }
-
-  // NEW: force scroll to top immediately, then again after map/content settles
   window.scrollTo(0, 0);
-
   window.addEventListener("load", () => {
     window.scrollTo(0, 0);
-
-    // Extra safety: re-apply after map tiles/layout settle
-    setTimeout(() => {
-      window.scrollTo(0, 0);
-    }, 300);
+    setTimeout(() => window.scrollTo(0, 0), 300);
   });
 </script>
-<div class="row mt-3">
-  <div class="col-8 offset-3">
-    <h3><%= listing.title %>:</h3>
-  </div>
-  <div class="card col-6 offset-3 show-card listing-card">
-    <img
-      src="<%= listing.image.url%>"
-      class="card-img-top show-img"
-      alt="listing_image"
-    />
-    <div class="card-body">
-      <div>
-        <p class="card-text">Owned by:-<i><%= listing.Owner.username%></i></p>
-        <p class="card-text"><%= listing.description %> <br /></p>
-        <p class="card-text"> <%= listing.price%> <br /></p>
-        <p class="card-text"><%= listing.location %> <br /></p>
-        <p class="card-text"><%= listing.country %> <br /></p>
-      </div>
-    </div>
-  </div>
-  <% if(currUser && listing.Owner._id.equals(currUser._id)) { %>
-  <div class="btns">
-    
-     <a href="/listings/<%= listing._id %>/edit"
-      class="btn btn-dark col-1 offset-3 edit-btn">Edit</a>
-    <form method="POST" action="/listings/<%=listing._id%>?_method=DELETE">
-      <button class="btn btn-dark offset-5">Delete</button>
-    </form>
-  </div>
-  <% } %>
 
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 
-  <div class="col-8 offset-3 mb-3">
-    
-      <% if (currUser) {%>
-      <hr />  
-    <h4>Leave a Review</h4>
-    <form action="/listings/<%= listing.id %>/reviews" method="POST" novalidate class="needs-validation">
-      <div class="mb-3 mt-3">
-        <fieldset class="starability-slot">
-          <legend>Rating:</legend>
-          <input type="radio" id="no-rate" class="input-no-rate" name="review[rating]" value="0" checked aria-label="No rating." />
-          <input type="radio" id="first-rate1" name="review[rating]" value="1" />
-          <label for="first-rate1" title="Terrible">1 star</label>
-          <input type="radio" id="first-rate2" name="review[rating]" value="2" />
-          <label for="first-rate2" title="Not good">2 stars</label>
-          <input type="radio" id="first-rate3" name="review[rating]" value="3" />
-          <label for="first-rate3" title="Average">3 stars</label>
-          <input type="radio" id="first-rate4" name="review[rating]" value="4" />
-          <label for="first-rate4" title="Very good">4 stars</label>
-          <input type="radio" id="first-rate5" name="review[rating]" value="5" />
-          <label for="first-rate5" title="Amazing">5 stars</label>
-        </fieldset>
-      </div>
-      <div class="mb-3 mt-3">
-        <label for="comment" class="form-label">Comment</label>
-        <textarea
-          name="review[comment]"
-          id="comment"
-          cols="30"
-          rows="5"
-          class="form-control"
-          required
-        ></textarea>
-        <div class="invalid-feedback">Please Add Some Comments For Reviews</div>
-      </div>
-      <button class="btn btn-outline-dark">Submit</button>
-    </form>
-    <hr/>
+  :root {
+    --wl-bg: #fbf8f3;
+    --wl-surface: #ffffff;
+    --wl-border: #e8e1d3;
+    --wl-ink: #22281f;
+    --wl-muted: #77705f;
+    --wl-accent: #0e5c4a;
+    --wl-accent-dark: #0a4638;
+    --wl-accent-soft: #e6efeb;
+    --wl-gold: #b8863b;
+    --wl-radius-lg: 20px;
+    --wl-radius-md: 14px;
+    --wl-radius-sm: 10px;
+    --wl-shadow: 0 4px 20px rgba(30, 25, 15, 0.07);
+    --wl-shadow-hover: 0 10px 28px rgba(30, 25, 15, 0.12);
+  }
+
+  .wl-page,
+  .wl-page * {
+    box-sizing: border-box;
+  }
+
+  .wl-page {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 28px 24px 70px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--wl-ink);
+  }
+
+  .wl-eyebrow {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--wl-accent);
+    margin-bottom: 8px;
+  }
+
+  .wl-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(1.7rem, 1.2rem + 1.8vw, 2.6rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    margin: 0 0 12px;
+    color: var(--wl-ink);
+  }
+
+  .wl-meta-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    font-size: 0.95rem;
+    color: var(--wl-muted);
+    margin-bottom: 22px;
+  }
+
+  .wl-rating-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    color: var(--wl-ink);
+  }
+
+  .wl-rating-pill .stars {
+    color: var(--wl-gold);
+    letter-spacing: 1px;
+  }
+
+  .wl-dot {
+    color: var(--wl-border);
+  }
+
+  .wl-location-text::before {
+    content: "📍";
+    margin-right: 4px;
+  }
+
+  /* ---------- Hero image ---------- */
+  .wl-hero {
+    position: relative;
+    border-radius: var(--wl-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--wl-shadow);
+    margin-bottom: 32px;
+  }
+
+  .wl-hero img {
+    width: 100%;
+    aspect-ratio: 16 / 8;
+    object-fit: cover;
+    display: block;
+  }
+
+  .wl-hero-badge {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(4px);
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--wl-ink);
+    box-shadow: var(--wl-shadow);
+  }
+
+  /* ---------- Two-column layout ---------- */
+  .wl-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 36px;
+    align-items: start;
+  }
+
+  .wl-content {
+    min-width: 0;
+  }
+
+  /* ---------- Cards (shared) ---------- */
+  .wl-section {
+    background: var(--wl-surface);
+    border: 1px solid var(--wl-border);
+    border-radius: var(--wl-radius-lg);
+    padding: 26px 28px 28px;
+    margin-bottom: 24px;
+  }
+
+  .wl-section h3,
+  .wl-section h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    color: var(--wl-ink);
+    margin: 0 0 16px;
+  }
+
+  .wl-owner-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--wl-border);
+  }
+
+  .wl-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--wl-accent-soft);
+    color: var(--wl-accent-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .wl-owner-row .name {
+    font-weight: 600;
+    color: var(--wl-ink);
+    line-height: 1.3;
+  }
+
+  .wl-owner-row .subtext {
+    font-size: 0.85rem;
+    color: var(--wl-muted);
+  }
+
+  .wl-description {
+    line-height: 1.7;
+    color: #3a352c;
+    font-size: 1rem;
+  }
+
+  /* ---------- Sticky aside / booking card ---------- */
+  .wl-aside {
+    position: sticky;
+    top: 24px;
+  }
+
+  .wl-price-card {
+    background: var(--wl-surface);
+    border: 1px solid var(--wl-border);
+    border-radius: var(--wl-radius-lg);
+    box-shadow: var(--wl-shadow);
+    padding: 24px 24px 26px;
+    margin-bottom: 20px;
+  }
+
+  .wl-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .wl-price-amount {
+    font-family: 'Fraunces', serif;
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: var(--wl-ink);
+  }
+
+  .wl-price-unit {
+    font-size: 0.9rem;
+    color: var(--wl-muted);
+  }
+
+  .wl-price-location {
+    font-size: 0.92rem;
+    color: var(--wl-muted);
+    margin-bottom: 20px;
+  }
+
+  .wl-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .wl-btns form {
+    margin: 0;
+  }
+
+  .wl-btns .btn,
+  .wl-btns button {
+    width: 100%;
+    border-radius: 999px;
+    padding: 11px 22px;
+    font-weight: 600;
+    font-size: 0.94rem;
+    border: none;
+  }
+
+  .wl-btn-primary {
+    background: var(--wl-accent);
+    color: #fff;
+    transition: background 0.15s ease;
+  }
+
+  .wl-btn-primary:hover {
+    background: var(--wl-accent-dark);
+    color: #fff;
+  }
+
+  .wl-btn-ghost {
+    background: transparent;
+    color: var(--wl-ink);
+    border: 1.5px solid var(--wl-border) !important;
+  }
+
+  .wl-btn-ghost:hover {
+    border-color: var(--wl-ink) !important;
+  }
+
+  /* ---------- Review form ---------- */
+  .starability-slot {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .starability-slot legend {
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 6px;
+    color: #3a352c;
+  }
+
+  .starability-slot label {
+    padding: 4px 2px;
+  }
+
+  #comment {
+    resize: vertical;
+    border-radius: var(--wl-radius-sm);
+    border-color: var(--wl-border);
+  }
+
+  #comment:focus {
+    border-color: var(--wl-accent);
+    box-shadow: 0 0 0 3px var(--wl-accent-soft);
+  }
+
+  .wl-submit-btn {
+    border-radius: 999px;
+    padding: 10px 28px;
+    font-weight: 600;
+    background: var(--wl-ink);
+    color: #fff;
+    border: none;
+  }
+
+  .wl-submit-btn:hover {
+    background: var(--wl-accent-dark);
+    color: #fff;
+  }
+
+  /* ---------- Reviews grid ---------- */
+  .wl-reviews-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 1.15rem;
+  }
+
+  .wl-reviews-heading .stars {
+    color: var(--wl-gold);
+    font-size: 1rem;
+    letter-spacing: 1px;
+  }
+
+  .wl-reviews-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 18px;
+  }
+
+  .wl-review-card {
+    border: 1px solid var(--wl-border);
+    border-radius: var(--wl-radius-md);
+    background: var(--wl-bg);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .wl-review-card:hover {
+    box-shadow: var(--wl-shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  .wl-review-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .wl-review-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--wl-accent-soft);
+    color: var(--wl-accent-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  .wl-review-author {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--wl-ink);
+    margin: 0;
+  }
+
+  .wl-review-stars {
+    color: var(--wl-gold);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+  }
+
+  .wl-review-comment {
+    font-size: 0.94rem;
+    line-height: 1.6;
+    color: #3a352c;
+    margin: 0 0 14px;
+  }
+
+  .wl-review-card form {
+    margin: 0;
+    align-self: flex-start;
+  }
+
+  .wl-review-card .btn {
+    border-radius: 999px;
+    padding: 5px 16px;
+    font-size: 0.78rem;
+    background: transparent;
+    border: 1.5px solid var(--wl-border);
+    color: var(--wl-muted);
+  }
+
+  .wl-review-card .btn:hover {
+    border-color: #c0453a;
+    color: #c0453a;
+  }
+
+  .wl-empty-reviews {
+    color: var(--wl-muted);
+    font-size: 0.95rem;
+  }
+
+  /* ---------- Map ---------- */
+  #map {
+    width: 100%;
+    height: 340px;
+    border-radius: var(--wl-radius-md);
+    border: 1px solid var(--wl-border);
+    position: relative;
+    isolation: isolate;
+  }
+
+  /* Keep the map's zoom/navigation arrows visible and tappable on every
+     screen size — clipping the container was hiding them on mobile. */
+  #map canvas,
+  #map .mapboxgl-canvas-container {
+    border-radius: var(--wl-radius-md);
+  }
+
+  #map .mapboxgl-ctrl-top-right,
+  #map .mapboxgl-ctrl-group {
+    display: block !important;
+    visibility: visible !important;
+    z-index: 5;
+  }
+
+  .wl-map-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: var(--wl-muted);
+    margin: 14px 0 0;
+  }
+
+  .wl-map-placeholder {
+    width: 100%;
+    height: 260px;
+    border-radius: var(--wl-radius-md);
+    border: 1.5px dashed var(--wl-border);
+    background: var(--wl-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--wl-muted);
+    gap: 6px;
+    padding: 20px;
+  }
+
+  .wl-map-placeholder .icon {
+    font-size: 1.6rem;
+  }
+
+  .wl-map-placeholder .title {
+    font-weight: 600;
+    color: var(--wl-ink);
+  }
+
+  /* ---------- Tablet ---------- */
+  @media (max-width: 991px) {
+    .wl-page {
+      padding: 24px 18px 56px;
+    }
+
+    .wl-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .wl-aside {
+      position: static;
+      order: -1;
+      margin-bottom: 8px;
+    }
+
+    #map {
+      height: 300px;
+    }
+  }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 575px) {
+    .wl-page {
+      padding: 18px 14px 48px;
+    }
+
+    .wl-hero img {
+      aspect-ratio: 4 / 3;
+    }
+
+    .wl-section {
+      padding: 20px 18px 22px;
+    }
+
+    .wl-price-card {
+      padding: 20px 18px 22px;
+    }
+
+    .wl-reviews-grid {
+      grid-template-columns: 1fr;
+    }
+
+    #map {
+      height: 240px;
+    }
+
+    .wl-map-placeholder {
+      height: 200px;
+    }
+
+    .starability-slot label {
+      font-size: 0.85rem;
+    }
+  }
+</style>
+
+<div class="wl-page">
+
+  <p class="wl-eyebrow">Stay in <%= listing.country %></p>
+  <h1 class="wl-title"><%= listing.title %></h1>
+
+  <div class="wl-meta-header">
+    <% if (reviews.length > 0) { %>
+      <span class="wl-rating-pill">
+        <span class="stars"><%= renderStars(avgRating) %></span>
+        <%= avgRating.toFixed(1) %>
+      </span>
+      <span class="wl-dot">·</span>
+      <span><%= reviews.length %> review<%= reviews.length === 1 ? "" : "s" %></span>
+      <span class="wl-dot">·</span>
+    <% } else { %>
+      <span class="wl-rating-pill">New listing</span>
+      <span class="wl-dot">·</span>
     <% } %>
-    
+    <span class="wl-location-text"><%= listing.location %>, <%= listing.country %></span>
+  </div>
 
-   <% if(listing.reviews.length > 0) { %>
-    <div class="row">
-       <p><b>All Reviews</b></p>
-      <% for(review of listing.reviews) { %>
-    <div class="card col-5 ms-3 mb-3">
-      <div class="card-body ms-2">
-        <h5 class="card-title mt-3">@<%=review.author.username%></h5>
-        <p class="card-text me-3" style="text-align: justify;"> <%=review.comment %></p>
-        
-         <p class="starability-result card-text" data-rating="<%= review.rating %>">
-    Rated: <%= review.rating %> stars
-  </p>
+  <div class="wl-hero">
+    <img src="<%= coverImage %>" alt="<%= listing.title %>" />
+    <span class="wl-hero-badge">Hosted by @<%= ownerName %></span>
+  </div>
+
+  <div class="wl-layout">
+
+    <div class="wl-content">
+
+      <div class="wl-section">
+        <div class="wl-owner-row">
+          <div class="wl-avatar"><%= ownerInitial %></div>
+          <div>
+            <p class="name">Hosted by @<%= ownerName %></p>
+            <p class="subtext">Usually responds within a day</p>
+          </div>
+        </div>
+        <p class="wl-description"><%= listing.description %></p>
       </div>
-      <form class="mb-3 mt-2 ms-1" method="POST" action="/listings/<%=listing._id%>/reviews/<%= review._id %>?_method=DELETE">
-        <button class="btn btn-sm btn-dark">Delete</button>
-      </form>
+
+      <% if (currUser) { %>
+      <div class="wl-section">
+        <h4>Leave a review</h4>
+        <form action="/listings/<%= listing.id %>/reviews" method="POST" novalidate class="needs-validation">
+          <div class="mb-3 mt-2">
+            <fieldset class="starability-slot">
+              <legend>Rating:</legend>
+              <input type="radio" id="no-rate" class="input-no-rate" name="review[rating]" value="0" checked aria-label="No rating." />
+              <input type="radio" id="first-rate1" name="review[rating]" value="1" />
+              <label for="first-rate1" title="Terrible">1 star</label>
+              <input type="radio" id="first-rate2" name="review[rating]" value="2" />
+              <label for="first-rate2" title="Not good">2 stars</label>
+              <input type="radio" id="first-rate3" name="review[rating]" value="3" />
+              <label for="first-rate3" title="Average">3 stars</label>
+              <input type="radio" id="first-rate4" name="review[rating]" value="4" />
+              <label for="first-rate4" title="Very good">4 stars</label>
+              <input type="radio" id="first-rate5" name="review[rating]" value="5" />
+              <label for="first-rate5" title="Amazing">5 stars</label>
+            </fieldset>
+          </div>
+          <div class="mb-3 mt-3">
+            <label for="comment" class="form-label">Comment</label>
+            <textarea
+              name="review[comment]"
+              id="comment"
+              cols="30"
+              rows="4"
+              class="form-control"
+              required
+            ></textarea>
+            <div class="invalid-feedback">Please add some comments for your review</div>
+          </div>
+          <button class="wl-submit-btn">Submit review</button>
+        </form>
       </div>
       <% } %>
-    
-    </div>
-   <% } %>
-  </div>
-   <div class="col-6 offset-3 mb-3">
-    <hr />
-      <h3>Where you'll be</h3>
-       
-      <div id="map"></div>
+
+      <div class="wl-section">
+        <% if (reviews.length > 0) { %>
+          <p class="wl-reviews-heading">
+            <b>All reviews</b>
+            <span class="stars"><%= renderStars(avgRating) %></span>
+            <span><%= avgRating.toFixed(1) %> · <%= reviews.length %> review<%= reviews.length === 1 ? "" : "s" %></span>
+          </p>
+          <div class="wl-reviews-grid">
+            <% for (const review of reviews) { %>
+              <% const rAuthor = review.author && review.author.username ? review.author.username : "Guest"; %>
+              <div class="wl-review-card">
+                <div>
+                  <div class="wl-review-top">
+                    <div class="wl-review-avatar"><%= rAuthor.charAt(0).toUpperCase() %></div>
+                    <div>
+                      <p class="wl-review-author">@<%= rAuthor %></p>
+                      <span class="wl-review-stars"><%= renderStars(review.rating) %></span>
+                    </div>
+                  </div>
+                  <p class="wl-review-comment"><%= review.comment %></p>
+                </div>
+                <% if (currUser) { %>
+                <form method="POST" action="/listings/<%= listing._id %>/reviews/<%= review._id %>?_method=DELETE">
+                  <button class="btn btn-sm">Delete</button>
+                </form>
+                <% } %>
+              </div>
+            <% } %>
+          </div>
+        <% } else { %>
+          <h4 style="margin-bottom: 6px;">All reviews</h4>
+          <p class="wl-empty-reviews">No reviews yet — be the first to share how your stay went.</p>
+        <% } %>
+      </div>
+
+      <div class="wl-section">
+        <h3>Where you'll be</h3>
+        <% if (hasCoords) { %>
+          <div id="map"></div>
+          <p class="wl-map-note">📍 <%= listing.location %>, <%= listing.country %></p>
+        <% } else { %>
+          <div class="wl-map-placeholder">
+            <span class="icon">🗺️</span>
+            <span class="title">Map unavailable for this stay</span>
+            <span><%= listing.location %>, <%= listing.country %></span>
+          </div>
+        <% } %>
+      </div>
 
     </div>
+
+    <aside class="wl-aside">
+      <div class="wl-price-card">
+        <div class="wl-price-row">
+          <span class="wl-price-amount">₹<%= listing.price %></span>
+          <span class="wl-price-unit">/ night</span>
+        </div>
+        <p class="wl-price-location">📍 <%= listing.location %>, <%= listing.country %></p>
+
+        <% if (currUser && listing.owner && listing.owner._id.equals(currUser._id)) { %>
+          <div class="wl-btns">
+            <a href="/listings/<%= listing._id %>/edit" class="btn wl-btn-primary">Edit listing</a>
+            <form method="POST" action="/listings/<%= listing._id %>?_method=DELETE">
+              <button class="btn wl-btn-ghost">Delete listing</button>
+            </form>
+          </div>
+        <% } %>
+      </div>
+    </aside>
+
+  </div>
 </div>
 
+<% if (hasCoords) { %>
 <script src="/js/map.js"></script>
-
+<% } %>

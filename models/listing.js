@@ -15,8 +15,9 @@ const listingSchema = new Schema({
     },
     url: {
       type: String,
+      // fixed: old default was an Unsplash page link, not an actual image file — was rendering broken
       default:
-        "https://unsplash.com/photos/photo-of-brown-bench-near-swimming-pool-Koei_7yYtIo",
+        "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=800&q=80",
     },
   },
   price: Number,
@@ -28,23 +29,20 @@ const listingSchema = new Schema({
       ref: "Review",
     },
   ],
-  Owner:{
-    type:Schema.Types.ObjectId,
-    ref:"User",
-
+  owner: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
   },
-
-  geometry:{
+  geometry: {
     type: {
-      type: String, // Don't do `{ location: { type: String } }`
-      enum: ['Point'], // 'location.type' must be 'Point'
-      required: true
+      type: String,
+      enum: ["Point"],
+      required: true,
     },
     coordinates: {
       type: [Number],
-      required: true
-    }
-
+      required: true,
+    },
   },
   category: {
     type: String,

@@ -1,88 +1,412 @@
-<!-- ================= Navbar styles ================= -->
+<!-- ================= Navbar ================= -->
 <style>
-  /* Search button - pill shaped, Airbnb red */
-  .search-btn {
-    background-color: #fe424d;
-    color: #fff;
-    border-radius: 25px;
-    padding: 0.5rem 1rem;
-    border: none;
-  }
-  .search-btn:hover {
-    background-color: #e0343e;
-    color: #fff;
-  }
-  .search-btn i {
-    margin-right: 0.5rem;
+  /* Self-contained design tokens — this partial is included on every page via
+     the shared boilerplate layout, not just the listings page, so it can't
+     rely on the listings page's own <style> block having run. Same values
+     as listings/index.ejs's :root, duplicated deliberately for now. If this
+     grows further, pull these into a single /public/css/tokens.css both
+     files link to, so there's exactly one place to change a brand color. */
+  :root {
+    --ts-primary: #0f4c3a;
+    --ts-accent: #c9a227;
+    --ts-ink: #17211d;
+    --ts-muted: #6b7770;
+    --ts-border: #e6e3db;
+    --ts-radius: 1.1rem;
+
+    /* New tokens for this navbar's two action colors, kept separate from
+       the green/gold brand palette so "Place your listing" (blue) and
+       "Sign up / Login" (red) read as distinct calls to action rather
+       than competing with the brand color itself. */
+    --ts-blue: #2563eb;
+    --ts-blue-dark: #1d4ed8;
+    --ts-red: #e11d48;
+    --ts-red-dark: #be123c;
+
+    /* Numbered well above the listings page's own z-index scale (which
+       tops out at 45 for its search-suggestions dropdown), so this file
+       and that one can never silently collide no matter which order
+       they're authored in. */
+    --z-navbar: 100;
+    --z-nav-suggestions: 101;
+    --z-nav-backdrop: 199;
+    --z-nav-drawer: 200;
   }
 
-  /* Search input - pill shaped */
-  .search-inp {
-    border-radius: 25px;
-    padding: 0.5rem 1.5rem;
-    font-size: 1rem;
+  .ts-navbar {
+    background: #fff;
+    border-bottom: 1px solid var(--ts-border);
+    z-index: var(--z-navbar);
   }
+  .ts-nav-inner {
+    max-width: 1500px; margin: 0 auto; padding: 0.7rem 1.25rem;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: nowrap;
+  }
+
+  /* ── Brand — always far left, always visible, on every breakpoint ── */
+  .ts-nav-brand {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 0.55rem;
+    text-decoration: none; min-width: 0;
+  }
+  .ts-nav-logo {
+    width: 2.3rem; height: 2.3rem; border-radius: 50%; flex-shrink: 0;
+    background: var(--ts-primary); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+  }
+  .ts-nav-word {
+    font-family: 'Fraunces', serif; font-weight: 700; color: var(--ts-primary);
+    font-size: clamp(1.05rem, 4vw, 1.35rem); white-space: nowrap;
+  }
+
+  /* ── Search — same visual language as the listings page's search bar,
+     centered in the remaining space, present at this same top position
+     on every screen size (never demoted into the hamburger drawer) ── */
+  .ts-nav-search-wrap { flex: 1 1 auto; min-width: 0; position: relative; display: flex; justify-content: center; }
+  .ts-nav-search-box {
+    display: flex; align-items: center; gap: 0.6rem; width: 100%; max-width: 420px;
+    background: #fff; border: 1.5px solid var(--ts-border); border-radius: 999px;
+    padding: 0.4rem 0.5rem 0.4rem 1rem;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  }
+  .ts-nav-search-box:focus-within {
+    border-color: var(--ts-accent); transform: translateY(-1px);
+    box-shadow: 0 0 0 4px rgba(201,162,39,0.16), 0 10px 22px rgba(15,76,58,0.14);
+  }
+  .ts-nav-search-icon { color: var(--ts-muted); font-size: 0.85rem; flex-shrink: 0; }
+  .ts-nav-search-box input {
+    border: none; outline: none; background: transparent; flex: 1; min-width: 0;
+    font-family: "Inter", sans-serif; font-size: 0.9rem; color: var(--ts-ink);
+  }
+  .ts-nav-search-box input::placeholder { color: #9aa39c; }
+  .ts-nav-search-btn {
+    width: 2.1rem; height: 2.1rem; border-radius: 50%; border: none; flex-shrink: 0;
+    background: var(--ts-primary); color: #fff; display: flex; align-items: center;
+    justify-content: center; font-size: 0.78rem; cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .ts-nav-search-btn:hover { background: #0c3d30; transform: scale(1.06); }
+
+  /* Suggestions dropdown — visually identical to the listings page's
+     .ts-suggestions component, scoped under its own class so the two
+     never fight over the same selector even though they look the same. */
+  .ts-nav-suggestions {
+    position: absolute; top: calc(100% + 0.6rem); left: 0; right: 0;
+    max-width: 420px; margin: 0 auto;
+    background: #fff; border-radius: var(--ts-radius); border: 1px solid var(--ts-border);
+    box-shadow: 0 14px 34px rgba(23,33,29,0.16);
+    max-height: 320px; overflow-y: auto; z-index: var(--z-nav-suggestions);
+    opacity: 0; transform: translateY(-6px); pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease; padding: 0.35rem 0;
+  }
+  .ts-nav-suggestions.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .ts-nav-sugg-heading {
+    padding: 0.6rem 1.1rem 0.35rem; font-size: 0.66rem; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase; color: var(--ts-muted);
+  }
+  .ts-nav-sugg-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1.1rem; cursor: pointer; }
+  .ts-nav-sugg-item:hover { background: #f5f8f4; }
+  .ts-nav-sugg-icon {
+    width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--ts-primary);
+    color: #e8c766; display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; flex-shrink: 0;
+  }
+  .ts-nav-sugg-city { font-weight: 600; font-size: 0.87rem; color: var(--ts-ink); }
+  .ts-nav-sugg-city mark { background: transparent; color: var(--ts-accent); font-weight: 700; }
+  .ts-nav-sugg-meta { font-size: 0.72rem; color: var(--ts-muted); }
+  .ts-nav-sugg-empty { padding: 1rem; text-align: center; color: var(--ts-muted); font-size: 0.82rem; }
+
+  /* ── Shared pill button styles — blue for the primary listing action,
+     red (solid or ghost) for the auth pair ── */
+  .ts-btn {
+    display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+    padding: 0.55rem 1.1rem; border-radius: 999px; font-weight: 600; font-size: 0.85rem;
+    text-decoration: none; border: 1.5px solid transparent; cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ts-btn-blue { background: var(--ts-primary); color: #fff; }
+  .ts-btn-blue:hover { background: #0c3d30; color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15,76,58,0.3); }
+  .ts-btn-red { background: var(--ts-red); color: #fff; }
+  .ts-btn-red:hover { background: var(--ts-red-dark); color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(225,29,72,0.3); }
+  .ts-btn-red-ghost { background: transparent; color: var(--ts-red); border-color: var(--ts-red); }
+  .ts-btn-red-ghost:hover { background: rgba(225,29,72,0.08); }
+  .ts-btn-block { width: 100%; justify-content: center; }
+
+  /* ── Desktop action row — hidden below 992px, replaced by the hamburger ── */
+  .ts-nav-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 0.6rem; }
+  @media (max-width: 991.98px) { .ts-nav-actions { display: none; } }
+
+  /* ── Hamburger — custom animated icon (not Bootstrap's default), morphs
+     into an × when the drawer is open, sits in ts-primary green so it
+     reads as part of the brand rather than a generic UI control ── */
+  .ts-nav-hamburger-btn {
+    display: none; flex: 0 0 auto; width: 2.6rem; height: 2.6rem; border-radius: 50%;
+    border: none; background: transparent; cursor: pointer; position: relative;
+    transition: background 0.15s ease;
+  }
+  .ts-nav-hamburger-btn:hover { background: #f0ede4; }
+  @media (max-width: 991.98px) { .ts-nav-hamburger-btn { display: flex; align-items: center; justify-content: center; } }
+  .ts-nav-hamburger-btn span {
+    position: absolute; left: 50%; top: 50%; width: 1.35rem; height: 2px;
+    background: var(--ts-primary); border-radius: 2px;
+    transform: translate(-50%, -50%); transition: transform 0.25s ease, opacity 0.2s ease;
+  }
+  .ts-nav-hamburger-btn span:nth-child(1) { translate: 0 -6px; }
+  .ts-nav-hamburger-btn span:nth-child(3) { translate: 0 6px; }
+  .ts-nav-hamburger-btn[aria-expanded="true"] span:nth-child(1) { translate: 0 0; transform: translate(-50%, -50%) rotate(45deg); }
+  .ts-nav-hamburger-btn[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .ts-nav-hamburger-btn[aria-expanded="true"] span:nth-child(3) { translate: 0 0; transform: translate(-50%, -50%) rotate(-45deg); }
+
+  /* ── Slide-in drawer — TripStay brand header at the very top, then
+     nav links, then the auth actions as full-width buttons ── */
+  .ts-nav-backdrop {
+    position: fixed; inset: 0; background: rgba(23,33,29,0.45);
+    z-index: var(--z-nav-backdrop); opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .ts-nav-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .ts-nav-drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; width: min(85vw, 320px);
+    background: #fff; z-index: var(--z-nav-drawer);
+    box-shadow: 2px 0 24px rgba(0,0,0,0.2);
+    transform: translateX(-100%); transition: transform 0.28s ease;
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+  .ts-nav-drawer.open { transform: translateX(0); }
+
+  .ts-nav-drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--ts-border);
+  }
+  .ts-nav-drawer-brand {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.15rem; color: var(--ts-primary);
+  }
+  .ts-nav-drawer-close {
+    width: 2.1rem; height: 2.1rem; border-radius: 50%; border: none; background: #f0ede4;
+    color: var(--ts-ink); display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .ts-nav-drawer-close:hover { background: #e6e3db; }
+
+  .ts-nav-drawer-links { display: flex; flex-direction: column; padding: 0.75rem; gap: 0.15rem; }
+  .ts-nav-drawer-links a {
+    display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 0.75rem;
+    border-radius: 0.7rem; color: var(--ts-ink); text-decoration: none; font-weight: 600; font-size: 0.92rem;
+    transition: background 0.15s ease;
+  }
+  .ts-nav-drawer-links a:hover { background: #f5f8f4; }
+  .ts-nav-drawer-links a i { width: 1.3rem; text-align: center; color: var(--ts-primary); }
+
+  .ts-nav-drawer-auth {
+    margin-top: auto; padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--ts-border);
+    display: flex; flex-direction: column; gap: 0.6rem;
+  }
+
+  body.ts-nav-drawer-locked { overflow: hidden; }
 </style>
 
-<!-- ================= Main navbar ================= -->
-<nav class="navbar navbar-expand-md bg-body-light border-bottom sticky-top">
-  <div class="container-fluid">
+<nav class="ts-navbar sticky-top">
+  <div class="ts-nav-inner">
 
-    <!-- Brand / logo -->
-    <a class="navbar-brand" href="/listings">
-      <i class="fa-regular fa-compass"></i>
+    <!-- Brand — far left on every screen size -->
+    <a class="ts-nav-brand" href="/listings">
+      <span class="ts-nav-logo"><i class="fa-regular fa-compass"></i></span>
+      <span class="ts-nav-word">TripStay</span>
     </a>
 
-    <!-- Mobile toggle button -->
-    <button
-      class="navbar-toggler"
-      type="button"
-      data-bs-toggle="collapse"
-      data-bs-target="#navbarNavAltMarkup"
-    >
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-
-      <!-- Left: Explore link -->
-      <div class="navbar-nav">
-        <span class="nav-link pl-0">Tripstay</span>
-        <a class="nav-link" href="/listings">Explore</a>
-      </div>
-
-      <!-- Center: Search form -->
-      <!-- Plain HTML form submit -> GET /search?city=... -> handled by /search route -->
-      <div class="navbar-nav ms-auto">
-        <form class="d-flex" role="search" action="/listings/search" method="GET">
-          <input
-            class="form-control me-2 search-inp"
-            type="search"
-            name="city"
-            placeholder="Search destinations"
-          />
-          <button class="btn search-btn" type="submit">
-            <i class="fa-solid fa-magnifying-glass"></i>Search
-          </button>
-        </form>
-      </div>
-
-      <!-- Right: Listing + Auth links -->
-      <div class="navbar-nav ms-auto">
-        <a class="nav-link" href="/listings/new">Place  Your Listing</a>
-
-        <!-- Show Signup/Login only when NOT logged in -->
-        <% if (!currUser) { %>
-          <a class="nav-link" href="/signup"><b>Signup</b></a>
-          <a class="nav-link" href="/login"><b>Login</b></a>
-        <% } %>
-
-        <!-- Show Logout only when logged in -->
-        <% if (currUser) { %>
-          <a class="nav-link" href="/logout"><b>Logout</b></a>
-        <% } %>
-      </div>
-
+    <!-- Search — same top-row position on mobile, tablet, and desktop -->
+    <div class="ts-nav-search-wrap">
+      <form class="ts-nav-search-box" role="search" action="/listings/search" method="GET" autocomplete="off" id="navSearchForm">
+        <i class="fa-solid fa-magnifying-glass ts-nav-search-icon"></i>
+        <input type="search" name="city" id="navCitySearch" placeholder="Search destinations" autocomplete="off" />
+        <button class="ts-nav-search-btn" type="submit" aria-label="Search">
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+      <div class="ts-nav-suggestions" id="navSuggestions"></div>
     </div>
+
+    <!-- Desktop actions: blue "Place your listing" + red Signup/Login pair -->
+    <div class="ts-nav-actions">
+      <a href="/listings/new" class="ts-btn ts-btn-blue">
+        <i class="fa-solid fa-house-circle-plus"></i> Place your listing
+      </a>
+      <% if (!currUser) { %>
+        <a href="/login" class="ts-btn ts-btn-red-ghost">Login</a>
+        <a href="/signup" class="ts-btn ts-btn-red">Sign up</a>
+      <% } else { %>
+        <a href="/logout" class="ts-btn ts-btn-red-ghost">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
+      <% } %>
+    </div>
+
+    <!-- Mobile/tablet: custom animated hamburger, opens the drawer below -->
+    <button class="ts-nav-hamburger-btn" id="navHamburgerBtn" type="button"
+            aria-label="Open menu" aria-expanded="false" aria-controls="navDrawer">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+
+<div class="ts-nav-backdrop" id="navBackdrop"></div>
+<aside class="ts-nav-drawer" id="navDrawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Menu">
+  <div class="ts-nav-drawer-header">
+    <span class="ts-nav-drawer-brand"><i class="fa-regular fa-compass"></i> TripStay</span>
+    <button class="ts-nav-drawer-close" id="navDrawerClose" type="button" aria-label="Close menu">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <nav class="ts-nav-drawer-links">
+    <a href="/listings"><i class="fa-solid fa-compass"></i> Explore stays</a>
+    <a href="/listings/new"><i class="fa-solid fa-house-circle-plus"></i> Place your listing</a>
+  </nav>
+
+  <div class="ts-nav-drawer-auth">
+    <% if (!currUser) { %>
+      <a href="/login" class="ts-btn ts-btn-red-ghost ts-btn-block">Login</a>
+      <a href="/signup" class="ts-btn ts-btn-red ts-btn-block">Sign up</a>
+    <% } else { %>
+      <a href="/logout" class="ts-btn ts-btn-red-ghost ts-btn-block">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </a>
+    <% } %>
+  </div>
+</aside>
+
+<script>
+(function () {
+  // ── Drawer open/close ────────────────────────────────────────────
+  // Isolated in its own try/catch: if any drawer element is missing for
+  // any reason, this block fails on its own instead of throwing and
+  // silently aborting the rest of the script (which is what was breaking
+  // the city typeahead below — one unrelated failure was taking down both).
+  try {
+    const hamburgerBtn = document.getElementById("navHamburgerBtn");
+    const drawer = document.getElementById("navDrawer");
+    const backdrop = document.getElementById("navBackdrop");
+    const closeBtn = document.getElementById("navDrawerClose");
+
+    if (hamburgerBtn && drawer && backdrop && closeBtn) {
+      const openDrawer = () => {
+        drawer.classList.add("open");
+        backdrop.classList.add("open");
+        drawer.setAttribute("aria-hidden", "false");
+        hamburgerBtn.setAttribute("aria-expanded", "true");
+        document.body.classList.add("ts-nav-drawer-locked");
+      };
+      const closeDrawer = () => {
+        drawer.classList.remove("open");
+        backdrop.classList.remove("open");
+        drawer.setAttribute("aria-hidden", "true");
+        hamburgerBtn.setAttribute("aria-expanded", "false");
+        document.body.classList.remove("ts-nav-drawer-locked");
+      };
+
+      hamburgerBtn.addEventListener("click", () => {
+        hamburgerBtn.getAttribute("aria-expanded") === "true" ? closeDrawer() : openDrawer();
+      });
+      closeBtn.addEventListener("click", closeDrawer);
+      backdrop.addEventListener("click", closeDrawer);
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+      window.matchMedia("(min-width: 992px)").addEventListener("change", (e) => { if (e.matches) closeDrawer(); });
+    } else {
+      console.warn("[navbar] drawer markup incomplete — hamburger disabled, search still runs independently.");
+    }
+  } catch (err) {
+    console.error("[navbar] drawer setup failed:", err);
+  }
+
+  // ── City typeahead — one network call, cached, then pure client-side
+  // filtering (no debounce needed since there's no per-keystroke request).
+  // Runs regardless of whether the drawer block above succeeded. ──
+  try {
+    const input = document.getElementById("navCitySearch");
+    const box = document.getElementById("navSuggestions");
+    const form = document.getElementById("navSearchForm");
+
+    if (!input || !box || !form) {
+      console.warn("[navbar] search markup incomplete — city typeahead disabled.");
+      return;
+    }
+
+    let cityCache = null;
+
+    async function loadCities() {
+      if (cityCache) return cityCache;
+      try {
+        const res = await fetch("/listings/api/cities");
+        if (!res.ok) {
+          console.warn("[navbar] /listings/api/cities returned", res.status, "— is the route registered above '/:id' in routes/listing.js?");
+          cityCache = [];
+        } else {
+          cityCache = await res.json();
+        }
+      } catch (err) {
+        console.error("[navbar] failed to fetch /listings/api/cities:", err);
+        cityCache = [];
+      }
+      return cityCache;
+    }
+
+    function renderSuggestions(list, { query = "", heading = "" } = {}) {
+      box.innerHTML = "";
+      if (heading) {
+        const h = document.createElement("div");
+        h.className = "ts-nav-sugg-heading";
+        h.textContent = heading;
+        box.appendChild(h);
+      }
+      if (list.length === 0) {
+        box.innerHTML += '<div class="ts-nav-sugg-empty">No cities found</div>';
+      } else {
+        list.slice(0, 7).forEach((city) => {
+          const idx = query ? city.location.toLowerCase().indexOf(query.toLowerCase()) : -1;
+          const label = query && idx > -1
+            ? city.location.slice(0, idx) + "<mark>" + city.location.slice(idx, idx + query.length) + "</mark>" + city.location.slice(idx + query.length)
+            : city.location;
+          const item = document.createElement("div");
+          item.className = "ts-nav-sugg-item";
+          item.innerHTML = `
+            <div class="ts-nav-sugg-icon"><i class="fa-solid fa-location-dot"></i></div>
+            <div>
+              <div class="ts-nav-sugg-city">${label}</div>
+              <div class="ts-nav-sugg-meta">${city.country || ""}${city.count ? " · " + city.count + " stays" : ""}</div>
+            </div>`;
+          item.addEventListener("click", () => {
+            input.value = city.location;
+            box.classList.remove("open");
+            form.submit();
+          });
+          box.appendChild(item);
+        });
+      }
+      box.classList.add("open");
+    }
+
+    input.addEventListener("focus", async () => {
+      const cities = await loadCities();
+      const q = input.value.trim();
+      if (q) {
+        renderSuggestions(cities.filter(c => c.location.toLowerCase().includes(q.toLowerCase())), { query: q, heading: "Matching cities" });
+      } else {
+        renderSuggestions(cities.slice(0, 7), { heading: "Popular destinations" });
+      }
+    });
+
+    input.addEventListener("input", () => {
+      if (!cityCache) return; // first focus hasn't resolved yet — focus handler will cover it
+      const q = input.value.trim();
+      if (!q) { renderSuggestions(cityCache.slice(0, 7), { heading: "Popular destinations" }); return; }
+      renderSuggestions(cityCache.filter(c => c.location.toLowerCase().includes(q.toLowerCase())), { query: q, heading: "Matching cities" });
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".ts-nav-search-wrap")) box.classList.remove("open");
+    });
+  } catch (err) {
+    console.error("[navbar] city typeahead setup failed:", err);
+  }
+})();
+</script>

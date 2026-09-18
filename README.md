@@ -11,7 +11,7 @@ A full-stack property rental platform inspired by Airbnb — built with Node.js,
 - **Reviews & Ratings** — Users can leave star ratings and comments on listings; only the review's author can delete it.
 - **Search & Filtering** — Search listings by city, and browse by curated categories (Trending, Mountains, Castles, Camping, and more) with themed landing pages.
 - **Flash Messages** — Real-time success/error feedback using connect-flash.
-- **Responsive UI** — Built with Bootstrap 5 and custom CSS, using EJS templating (ejs-mate) for reusable layouts and partials.
+- **Responsive UI** — Built with Bootstrap 5 and custom CSS, using EJS templating (ejs-mate) for reusable layouts.
 
 ## Tech Stack
 
